@@ -8,19 +8,29 @@ File Description
 dementia_data.csv contains one row per participant/task session including metadata, transcripts, and
 pre-computed speech and language features.
 
-Metadata Columns
 1. Record-ID
-   - Type: string
-   - Description: Unique ID for each participant/session.
-   - Examples: 001, A03
-   - Range: Any alphanumeric string.
+
+Type: string
+
+Description: Unique ID for each participant/session.
+
+Examples: 001, A03
+
+Range: Any alphanumeric string.
+
 2. TrainOrDev
-   - Type: string
-   - Description: Indicates whether the sample belongs to the training or development set.
-   - Examples: Train, Dev
-   - Range: {Train, Dev}
+
+Type: string
+
+Description: Indicates whether the sample belongs to the training or development set.
+
+Examples: Train, Dev
+
+Range: {Train, Dev}
+
 3. Class
-   - Type: string
+
+Type: string
 
 Description: Diagnostic group of the participant.
 
@@ -28,7 +38,7 @@ Examples: Control, MCI, Dementia
 
 Range: Finite discrete set.
 
-Gender
+4. Gender
 
 Type: integer
 
@@ -42,171 +52,217 @@ Examples: 0, 1
 
 Range: {0, 1}
 
-Age
+5. Age
 
-Type: string (may contain ranges or approximate values)
+Type: string (may include ranges or approximations)
 
 Description: Participant age.
 
-Examples: 78, 70-75, ~80
+Examples: 78, 70–75, ~80
 
-Range: approx. 50–95.
+Range: approx. 50–95
 
-Converted-MMSE
+6. Converted-MMSE
 
 Type: float
 
-Description: Cognitive score (Mini-Mental State Examination), converted to unified scale.
+Description: Cognitive score (Mini-Mental State Examination), converted to a 0–30 scale.
 
 Examples: 22.0, 28.5, 15.0
 
 Range: 0–30
 
-Transcripts
-Transcript_PFT
+7. Transcript_PFT
 
 Type: string
 
 Description: Transcript of the Picture Description Task (PFT).
 
-Examples: Full paragraph describing a picture.
+Examples: Full paragraph describing a scene.
 
-Transcript_CTD
+Range: Variable-length text.
 
-Type: string
-
-Description: Transcript of Category/Topic Description Task.
-
-Examples: multi-sentence descriptive responses.
-
-Notes: Contains one missing value.
-
-Transcript_SFT
+8. Transcript_CTD
 
 Type: string
 
-Description: Semantic Fluency Task transcript
-(e.g., listing animals).
+Description: Transcript of the Category/Topic Description Task.
 
-Examples: "dog, cat, horse"
+Examples: Multi-sentence descriptive responses.
 
-🗣 Speech Timing Features
-total_seconds
+Range: Variable-length text.
 
-Type: int
+Notes: One missing value.
+
+9. Transcript_SFT
+
+Type: string
+
+Description: Semantic Fluency Task transcript (e.g., listing items).
+
+Examples: “dog, cat, horse”
+
+Range: Short lists or sequences of words.
+
+10. Class_label
+
+Type: integer
+
+Description: Numeric encoding of cognitive diagnosis.
+
+Examples: 0, 1, 2
+
+Range: Small set of class integers.
+
+11. total_seconds
+
+Type: integer
 
 Description: Length of the recording in seconds.
 
-Range: ~10–600 seconds.
+Examples: 60, 180, 240
 
-speaking_rate_wpm
+Range: ~10–600
+
+12. Parentheses_Content
+
+Type: string
+
+Description: Extracted content inside parentheses from transcripts.
+
+Examples: "(laughs)", "(pause)"
+
+Range: Short strings or empty.
+
+13. CTD_Cleaned
+
+Type: string
+
+Description: Cleaned and normalized version of the CTD transcript.
+
+Examples: Lowercased, punctuation-stripped text.
+
+Range: Variable-length cleaned text.
+
+14. found_fillers
+
+Type: string
+
+Description: Serialized list of detected filler words.
+
+Examples: "['um', 'uh']", "[]"
+
+Range: 0 or more items.
+
+15. filler_list
+
+Type: string
+
+Description: Ordered list of filler word occurrences.
+
+Examples: "['like', 'um']", "['uh']"
+
+Range: 0–many items.
+
+16. filler_count
+
+Type: integer
+
+Description: Total number of filler words detected.
+
+Examples: 0, 3, 12
+
+Range: 0–20
+
+17. token_count
+
+Type: integer
+
+Description: Total number of tokens (words) in the transcript.
+
+Examples: 50, 100, 250
+
+Range: 0–400
+
+18. type_count
+
+Type: integer
+
+Description: Number of unique word types.
+
+Examples: 20, 70, 120
+
+Range: 0–200
+
+19. type_token_ratio
 
 Type: float
 
-Description: Words per minute (WPM).
+Description: Lexical diversity = type_count / token_count.
 
-Range: ~50–180.
-
-pause_count
-
-Type: int
-
-Description: Number of pauses detected in speech.
-
-Range: 0–40.
-
-avg_pause_length
-
-Type: float
-
-Description: Average pause duration in seconds.
-
-Range: 0–2 seconds.
-
-📝 Linguistic Features
-num_words
-
-Type: int
-
-Description: Total words spoken.
-
-Range: 0–400.
-
-unique_words
-
-Type: int
-
-Description: Count of unique words spoken.
-
-Range: 0–200.
-
-type_token_ratio
-
-Type: float
-
-Description: unique_words / num_words
+Examples: 0.20, 0.55
 
 Range: 0–1
 
-filler_word_count
-
-Type: int
-
-Description: Filler words (um, uh, like, etc.).
-
-Range: 0–20.
-
-avg_word_length
+20. ma_ttr
 
 Type: float
 
-Description: Average number of characters per word.
+Description: Moving-Average Type Token Ratio (stable lexical diversity measure).
 
-Range: ~3–6.
+Examples: 0.45, 0.60
 
-total_syllables
+Range: typically 0–1
 
-Type: int
-
-Description: Total syllables spoken.
-
-Range: 0–1000.
-
-avg_syllables_per_word
+21. brunets_index
 
 Type: float
 
-Description: Mean syllables per word.
+Description: Brunet’s Index, a lexical richness measure.
 
-Range: 1–2.5.
+Examples: 10.2, 12.5
 
-sentence_count
+Range: typically 8–18
 
-Type: int
+22. content_density
+
+Type: float
+
+Description: Ratio of content words (nouns, verbs, adjectives, adverbs) to total words.
+
+Examples: 0.45, 0.62
+
+Range: 0–1
+
+23. repetitions
+
+Type: dict
+
+Description: Dictionary of repeated words and their frequencies.
+
+Examples: {}, {"the": 10, "is": 5}
+
+Range: Arbitrary dictionary of word → count pairs
+
+24. sentence_count
+
+Type: integer
 
 Description: Number of sentences in the transcript.
 
-Range: 0–15.
+Examples: 0, 4, 7
 
-average_words_per_sentence
+Range: 0–15
+
+25. average_words_per_sentence
 
 Type: float
 
 Description: Mean sentence length.
 
-Range: 0–50.
+Examples: 15.2, 44.0
 
-repetitions
-
-Type: dict
-
-Description: Counts of repeated words in the transcript.
-
-Examples:
-{},
-{"the": 10, "is": 5}
-
-Range: Arbitrary dictionary of word → count pairs.
+Range: 0–50
 
 
 Notes & Recommendations
