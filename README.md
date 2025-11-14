@@ -263,9 +263,3 @@ Description: Mean sentence length.
 Examples: 15.2, 44.0
 
 Range: 0–50
-
-
-Notes & Recommendations
-Age should be cleaned for numeric analysis.
-repetitions contains Python dicts requiring parsing.
-One missing value exists in Transcript_CTD.
