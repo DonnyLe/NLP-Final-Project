@@ -256,6 +256,24 @@ def get_stratified_kfold_splits(
     for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y), start=1):
         yield fold_idx, train_idx, test_idx
 
+def load_transcript_splits(
+        csv_path: str, 
+        transcript_cols: List[str] = ["Transcript_PFT", "Transcript_CTD", "Transcript_SFT"]
+    ) -> dict:
+    """
+    Load cleaned transcripts CSV, drop NaNs per transcript type,
+    and return a dict mapping transcript column name to its cleaned DataFrame.
+    """
+    transcript_df = pd.read_csv(csv_path)
+    df_by_transcript = {}
+
+    for col in transcript_cols:
+        # Drop NaNs only in this transcript type column
+        df_clean = transcript_df.dropna(subset=[col]).copy()
+        df_by_transcript[col] = df_clean
+
+    return df_by_transcript
+
 
 if __name__ == "__main__":
     INPUT_CSV = "data/dementia_data.csv"
