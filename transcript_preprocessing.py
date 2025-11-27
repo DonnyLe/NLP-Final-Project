@@ -200,6 +200,10 @@ def preprocess_dataframe(
 
     transcript_df = df_full[required_cols].copy()
 
+    # add numeric label column for classes
+    label_map = {"HC": 0, "MCI": 1, "Dementia": 2}
+    transcript_df["Label"] = transcript_df["Class"].map(label_map)
+
     # Optionally save as CSV
     if output_csv_path is not None:
         transcript_df.to_csv(output_csv_path, index=False)
@@ -254,11 +258,9 @@ def get_stratified_kfold_splits(
 
 
 if __name__ == "__main__":
-    # Example paths (adjust as needed)
     INPUT_CSV = "data/dementia_data.csv"
     OUTPUT_CSV = "data/transcripts_cleaned.csv"
 
-    # 1. Preprocess CSV and save modeling subset
     transcript_df = preprocess_dataframe(
         input_csv_path=INPUT_CSV,
         transcript_cols=["Transcript_PFT", "Transcript_CTD", "Transcript_SFT"],
