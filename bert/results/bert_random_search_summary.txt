@@ -1,0 +1,7 @@
+Best config per transcript type (sorted by macro_f1):
+
+ trial_id  learning_rate  batch_size  num_train_epochs  max_len  weight_decay  warmup_ratio  accuracy  macro_f1  weighted_f1  precision_macro  recall_macro  precision_weighted  recall_weighted transcript_col
+        9        0.00003           8                 5      512      0.074476           0.1  0.611465  0.416049     0.574267         0.397016      0.439369            0.543776         0.611465 Transcript_PFT
+        9        0.00003           8                 5      512      0.074476           0.1  0.602564  0.407886     0.564239         0.390279      0.430894            0.534321         0.602564 Transcript_CTD
+       10        0.00005           8                 3      512      0.046956           0.1  0.625000  0.407279     0.564743         0.417501      0.438403            0.560025         0.625000 Transcript_SFT
+        7        0.00003           8                 3      512      0.089312           0.2  0.560510  0.362996     0.508360         0.365915      0.389417            0.496241         0.560510 Transcript_ALL
