@@ -1,4 +1,5 @@
 import os
+import shutil
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -85,8 +86,10 @@ def run_single_fold_bert(
     warmup_ratio: float = 0.0,
     n_splits: int = 5,
     seed: int = 42,
-    fold_to_use: int = 1,  # 1-based, consistent with get_stratified_kfold_splits
+    fold_to_use: int = 1,
     trial_id: int = 0,
+    save_model: bool = False,  # NEW: only save if explicitly requested
+    final_model_dir: str = None,  # NEW: where to save the best model
 ) -> Tuple[Dict[str, float], np.ndarray, np.ndarray, str]:
     """
     Fine-tune BERT on a single stratified K-fold split for one transcript type.
@@ -106,7 +109,7 @@ def run_single_fold_bert(
     for fold_idx, train_idx, dev_idx in get_stratified_kfold_splits(
         df,
         transcript_col=transcript_col,
-        label_col="Label",   # IMPORTANT: numeric label column
+        label_col="Label",
         n_splits=n_splits,
         seed=seed,
     ):
@@ -160,15 +163,12 @@ def run_single_fold_bert(
         num_labels=num_labels,
     )
 
-    # Unique output directory per trial so checkpoint dirs don't collide
-    model_dir = (
-        f"checkpoints_random_search/"
-        f"{transcript_col}_fold_{fold_idx}_trial_{trial_id}"
-    )
-    os.makedirs(model_dir, exist_ok=True)
+    # Temporary directory for training
+    temp_model_dir = f"temp_checkpoints/trial_{trial_id}"
+    os.makedirs(temp_model_dir, exist_ok=True)
 
     training_args = TrainingArguments(
-        output_dir=model_dir,
+        output_dir=temp_model_dir,
         evaluation_strategy="epoch",
         save_strategy="epoch",
         learning_rate=learning_rate,
@@ -180,9 +180,9 @@ def run_single_fold_bert(
         load_best_model_at_end=True,
         metric_for_best_model="macro_f1",
         logging_steps=50,
-        save_total_limit=2,
+        save_total_limit=1,  # Only keep 1 checkpoint during training
         dataloader_num_workers=0,
-        report_to=[],  # no wandb, tensorboard, etc.
+        report_to=[],
     )
 
     trainer = Trainer(
@@ -214,10 +214,21 @@ def run_single_fold_bert(
         "recall_macro": metrics["eval_recall_macro"],
         "precision_weighted": metrics["eval_precision_weighted"],
         "recall_weighted": metrics["eval_recall_weighted"],
-        "model_dir": model_dir,
+        "model_dir": final_model_dir if save_model else temp_model_dir,
     }
 
-    return metrics_simple, y_true, y_pred, model_dir
+    # NEW: Only save model if this is the best one
+    if save_model and final_model_dir:
+        print(f">>> Saving best model to {final_model_dir}")
+        trainer.save_model(final_model_dir)
+        tokenizer.save_pretrained(final_model_dir)
+    
+    # Clean up temporary directory
+    if os.path.exists(temp_model_dir):
+        shutil.rmtree(temp_model_dir)
+        print(f"Cleaned up temporary directory: {temp_model_dir}")
+
+    return metrics_simple, y_true, y_pred, final_model_dir if save_model else "not_saved"
 
 
 # -------------------------
@@ -268,9 +279,11 @@ def random_search_single_fold(
 ) -> pd.DataFrame:
     """
     Run random search over hyperparameters on a single fold for one transcript type.
+    Only saves the best model based on macro_f1.
 
     Saves:
       - all trials (hyperparams + metrics + model_dir) to results_csv_path
+      - ONLY the best model to disk
 
     Returns:
         results_df: DataFrame with one row per trial.
@@ -280,18 +293,25 @@ def random_search_single_fold(
     all_results: List[Dict] = []
     best_macro_f1 = -1.0
     best_cfg: Dict = {}
+    best_trial_id = -1
+
+    # First pass: run all trials without saving models
+    print("\n" + "="*60)
+    print(f" Phase 1: Running {n_trials} trials for {transcript_col}")
+    print(f" Models will NOT be saved yet - finding best config first")
+    print("="*60)
 
     for trial in range(1, n_trials + 1):
-        print(f"\n==============================")
-        print(f" Random search trial {trial}/{n_trials} for {transcript_col}")
-        print(f"==============================")
+        print(f"\n{'='*30}")
+        print(f" Trial {trial}/{n_trials} for {transcript_col}")
+        print(f"{'='*30}")
 
         cfg = sample_hyperparams(rng)
         print("Sampled hyperparams:")
         for k, v in cfg.items():
             print(f"  {k}: {v}")
 
-        metrics, _, _, model_dir = run_single_fold_bert(
+        metrics, _, _, _ = run_single_fold_bert(
             df=df,
             transcript_col=transcript_col,
             model_name=model_name,
@@ -305,9 +325,11 @@ def random_search_single_fold(
             seed=seed,
             fold_to_use=fold_to_use,
             trial_id=trial,
+            save_model=False,  # Don't save yet
         )
 
         trial_result = {
+            "trial_id": trial,
             **cfg,
             "accuracy": metrics["accuracy"],
             "macro_f1": metrics["macro_f1"],
@@ -316,7 +338,6 @@ def random_search_single_fold(
             "recall_macro": metrics["recall_macro"],
             "precision_weighted": metrics["precision_weighted"],
             "recall_weighted": metrics["recall_weighted"],
-            "model_dir": model_dir,
         }
         all_results.append(trial_result)
 
@@ -324,25 +345,54 @@ def random_search_single_fold(
         print(f"  accuracy           = {metrics['accuracy']:.4f}")
         print(f"  macro_f1           = {metrics['macro_f1']:.4f}")
         print(f"  weighted_f1        = {metrics['weighted_f1']:.4f}")
-        print(f"  precision_macro    = {metrics['precision_macro']:.4f}")
-        print(f"  recall_macro       = {metrics['recall_macro']:.4f}")
-        print(f"  precision_weighted = {metrics['precision_weighted']:.4f}")
-        print(f"  recall_weighted    = {metrics['recall_weighted']:.4f}")
-        print(f"  model_dir          = {model_dir}")
 
         if metrics["macro_f1"] > best_macro_f1:
             best_macro_f1 = metrics["macro_f1"]
-            best_cfg = trial_result
+            best_cfg = {**trial_result}
+            best_trial_id = trial
             print(">>> New best configuration found!")
 
         # Save intermediate results after each trial
         results_df = pd.DataFrame(all_results)
         results_df.to_csv(results_csv_path, index=False)
 
-    print("\n===== Random search complete for", transcript_col, "=====")
-    print("Best configuration (by macro_f1):")
+    # Second pass: retrain ONLY the best model and save it
+    print("\n" + "="*60)
+    print(f" Phase 2: Retraining and saving ONLY the best model")
+    print(f" Best trial: {best_trial_id} with macro_f1 = {best_macro_f1:.4f}")
+    print("="*60)
+
+    best_model_dir = f"best_models/{transcript_col}_fold_{fold_to_use}"
+    os.makedirs(best_model_dir, exist_ok=True)
+
+    print("\nRetraining best configuration:")
     for k, v in best_cfg.items():
-        print(f"  {k}: {v}")
+        if k != 'trial_id':
+            print(f"  {k}: {v}")
+
+    final_metrics, _, _, saved_dir = run_single_fold_bert(
+        df=df,
+        transcript_col=transcript_col,
+        model_name=model_name,
+        max_len=best_cfg["max_len"],
+        learning_rate=best_cfg["learning_rate"],
+        num_train_epochs=best_cfg["num_train_epochs"],
+        batch_size=best_cfg["batch_size"],
+        weight_decay=best_cfg["weight_decay"],
+        warmup_ratio=best_cfg["warmup_ratio"],
+        n_splits=n_splits,
+        seed=seed,
+        fold_to_use=fold_to_use,
+        trial_id=best_trial_id,
+        save_model=True,
+        final_model_dir=best_model_dir,
+    )
+
+    # Update the best config with the model directory
+    best_cfg["model_dir"] = saved_dir
+
+    print(f"\n✓ Best model saved to: {best_model_dir}")
+    print(f"✓ All trial results saved to: {results_csv_path}")
 
     results_df = pd.DataFrame(all_results).sort_values("macro_f1", ascending=False)
     return results_df
@@ -360,7 +410,7 @@ if __name__ == "__main__":
     TRANSCRIPT_COLS = ["Transcript_PFT", "Transcript_CTD", "Transcript_SFT"]
 
     # Number of random trials per transcript type
-    N_TRIALS = 15
+    N_TRIALS = 10
 
     # Which fold to use for tuning (1-based index, 1..n_splits)
     FOLD_TO_USE = 1
@@ -374,9 +424,9 @@ if __name__ == "__main__":
     best_overall = []
 
     for transcript_col, df in df_by_transcript.items():
-        print("\n############################################")
+        print("\n" + "#"*60)
         print(f" Random search for transcript type: {transcript_col}")
-        print("############################################")
+        print("#"*60)
 
         results_csv_path = f"random_search_{transcript_col}_fold{FOLD_TO_USE}.csv"
 
@@ -403,5 +453,9 @@ if __name__ == "__main__":
     best_df = pd.DataFrame(best_overall).sort_values("macro_f1", ascending=False)
     best_df.to_csv("random_search_best_per_transcript.csv", index=False)
 
-    print("\n===== Best config per transcript type (sorted by macro_f1) =====")
+    print("\n" + "="*60)
+    print(" FINAL SUMMARY: Best config per transcript type")
+    print("="*60)
     print(best_df)
+    print("\n✓ All best models saved in: best_models/")
+    print("✓ Summary saved to: random_search_best_per_transcript.csv")
