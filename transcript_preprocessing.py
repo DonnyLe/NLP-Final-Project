@@ -8,6 +8,7 @@ from sklearn.model_selection import StratifiedKFold
 # Regex patterns for transcript cleaning
 SPEAKER_PATTERN = re.compile(r"^\s*(Pat|Oth)\s*:", re.IGNORECASE)
 PAUSE_PATTERN = re.compile(r"\((\d+)\s*second[s]?\)", re.IGNORECASE)
+
 # Patterns to keep and map to tokens
 KEEP_NONVERBAL_PATTERNS: List[Tuple[str, str]] = [
     # laughter
@@ -288,7 +289,24 @@ if __name__ == "__main__":
     print("transcript_df shape:", transcript_df.shape)
     print(transcript_df.head())
 
+    # 2. Print out token sizes for cleaned transcripts
+    for col in ["Transcript_PFT", "Transcript_CTD", "Transcript_SFT"]:
+        if col in transcript_df.columns:
+            lengths = (
+                transcript_df[col]
+                .fillna("")
+                .str.split()
+                .apply(len)
+            )
+            print(f"{col}:")
+            print(f"  max length (tokens) = {lengths.max()}")
+            print(f"  mean length (tokens) = {lengths.mean():.2f}")
+            print(f"  95th percentile = {lengths.quantile(0.95):.0f}")
+            print()
+
     for fold_idx, train_idx, test_idx in get_stratified_kfold_splits(
         transcript_df, transcript_col="Transcript_PFT", label_col="Class", n_splits=5):
         print(f"Fold {fold_idx}: ")
         print(f"train size = {len(train_idx)}, test size = {len(test_idx)}")
+
+    
