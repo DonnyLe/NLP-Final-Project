@@ -201,10 +201,11 @@ def run_single_fold_bert(
         print(f"  {k}: {v}")
 
     # Predictions on this fold's dev set
+        # Predictions on this fold's dev set
     preds_output = trainer.predict(dev_tok)
     logits = preds_output.predictions
     y_pred = np.argmax(logits, axis=-1)
-    y_true = dev_tok["labels"].numpy()
+    y_true = np.array(dev_tok["labels"])
 
     metrics_simple = {
         "accuracy": metrics["eval_accuracy"],
@@ -216,6 +217,7 @@ def run_single_fold_bert(
         "recall_weighted": metrics["eval_recall_weighted"],
         "model_dir": final_model_dir if save_model else temp_model_dir,
     }
+
 
     # NEW: Only save model if this is the best one
     if save_model and final_model_dir:
