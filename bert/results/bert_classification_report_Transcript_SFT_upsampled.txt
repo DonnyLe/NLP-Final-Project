@@ -1,0 +1,17 @@
+Classification report for Transcript_SFT_upsampled
+
+              precision    recall  f1-score   support
+
+          HC       0.66      0.69      0.68        78
+         MCI       0.47      0.41      0.44        58
+    Dementia       0.11      0.12      0.11        16
+
+    accuracy                           0.53       152
+   macro avg       0.41      0.41      0.41       152
+weighted avg       0.53      0.53      0.53       152
+
+
+Best trial CV metrics:
+accuracy = 0.5263157894736842
+macro_f1 = 0.4098842289209262
+weighted_f1 = 0.5264464199489549

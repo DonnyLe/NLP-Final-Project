@@ -1,0 +1,17 @@
+Classification report for Transcript_CTD
+
+              precision    recall  f1-score   support
+
+          HC       0.64      0.79      0.71        82
+         MCI       0.53      0.50      0.51        58
+    Dementia       0.00      0.00      0.00        16
+
+    accuracy                           0.60       156
+   macro avg       0.39      0.43      0.41       156
+weighted avg       0.53      0.60      0.56       156
+
+
+Best trial CV metrics:
+accuracy = 0.6025641025641025
+macro_f1 = 0.40788561664812933
+weighted_f1 = 0.5642389591323292
