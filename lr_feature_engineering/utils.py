@@ -28,7 +28,7 @@ def compute_linguistic_features_for_column(df: pd.DataFrame, text_col: str) -> p
 
     texts = out[text_col].fillna("")
 
-    # Basic whitespace tokenization
+    # whitespace tokenization
     token_lists = texts.apply(lambda s: s.split())
 
     out["token_count"] = token_lists.apply(len)

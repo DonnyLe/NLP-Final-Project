@@ -1,0 +1,4 @@
+transcript,C,class_weight,mean_accuracy,mean_macro_f1
+Transcript_CTD,0.1,,0.646774193548387,0.4304879940040859
+Transcript_SFT,0.1,balanced,0.48043010752688176,0.4078542636621531
+Transcript_PFT,10.0,,0.5792338709677419,0.4053508720755322
