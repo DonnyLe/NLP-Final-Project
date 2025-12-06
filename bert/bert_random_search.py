@@ -13,6 +13,9 @@ from sklearn.metrics import (
 )
 import matplotlib.pyplot as plt
 
+import torch
+import torch.nn as nn
+
 from transcript_preprocessing import get_stratified_kfold_splits, load_transcript_splits
 from transformers import (
     AutoTokenizer,
@@ -76,45 +79,60 @@ def compute_metrics_from_labels(labels, preds) -> Dict[str, float]:
 
 
 # -------------------------
-# Upsampling helper
+# Class weights helper
 # -------------------------
 
-def upsample_train_df(
+def compute_class_weights_from_df(
     train_df: pd.DataFrame,
     label_col: str = "Label",
-    seed: Optional[int] = None,
-) -> pd.DataFrame:
+) -> torch.Tensor:
     """
-    Simple minority upsampling to match the largest class size.
-    Samples with replacement within each class, then shuffles.
+    Compute class weights inversely proportional to class frequency.
+    weight_c = N / (num_classes * count_c)
     """
-    rng = np.random.default_rng(seed)
+    labels = train_df[label_col].values
+    class_indices, counts = np.unique(labels, return_counts=True)
 
-    labels, counts = np.unique(train_df[label_col].values, return_counts=True)
-    max_count = counts.max()
+    num_classes = len(class_indices)
+    total = counts.sum()
 
-    upsampled_parts = []
+    weights = total / (num_classes * counts.astype(np.float32))
 
-    for label in labels:
-        class_df = train_df[train_df[label_col] == label]
-        n_current = len(class_df)
+    # Ensure weights are ordered by class index 0..num_classes-1
+    sorted_weights = np.zeros(num_classes, dtype=np.float32)
+    for cls, w in zip(class_indices, weights):
+        sorted_weights[int(cls)] = w
 
-        if n_current < max_count:
-            extra_indices = rng.choice(
-                class_df.index.values,
-                size=max_count - n_current,
-                replace=True,
+    return torch.tensor(sorted_weights, dtype=torch.float32)
+
+
+# -------------------------
+# Custom Trainer with weighted loss
+# -------------------------
+
+class WeightedCETrainer(Trainer):
+    def __init__(self, class_weights: torch.Tensor, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.class_weights = class_weights
+        self._loss_fct = None
+
+    def compute_loss(self, model, inputs, return_outputs=False):
+        labels = inputs.pop("labels")
+        outputs = model(**inputs)
+        logits = outputs.logits
+
+        # Initialize loss function on first call
+        if self._loss_fct is None:
+            self._loss_fct = nn.CrossEntropyLoss(
+                weight=self.class_weights.to(logits.device)
             )
-            extra_df = train_df.loc[extra_indices]
-            balanced_df = pd.concat([class_df, extra_df], axis=0)
-        else:
-            balanced_df = class_df
 
-        upsampled_parts.append(balanced_df)
+        loss = self._loss_fct(
+            logits.view(-1, self.model.config.num_labels),
+            labels.view(-1),
+        )
 
-    upsampled_df = pd.concat(upsampled_parts, axis=0)
-    upsampled_df = upsampled_df.sample(frac=1.0, random_state=seed).reset_index(drop=True)
-    return upsampled_df
+        return (loss, outputs) if return_outputs else loss
 
 
 # -------------------------
@@ -137,22 +155,20 @@ def train_eval_one_fold(
     fold_idx: int,
     trial_id: int,
     seed: int,
-    use_upsampling: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Train on one fold and return labels and predictions for that fold's dev split.
+    Train on one fold with class-weighted loss.
+    Returns labels and predictions for that fold's dev split.
     """
-    upsample_msg = " with upsampling" if use_upsampling else ""
-    print(f"  Fold {fold_idx}: training (trial {trial_id}){upsample_msg}")
+    print(f"  Fold {fold_idx}: training (trial {trial_id})")
 
     tokenize_batch = tokenize_batch_factory(transcript_col, tokenizer, max_len)
 
     train_df = df.iloc[train_idx].reset_index(drop=True)
     dev_df = df.iloc[dev_idx].reset_index(drop=True)
 
-    if use_upsampling:
-        # Different seed per fold to avoid identical resampling
-        train_df = upsample_train_df(train_df, label_col="Label", seed=seed + fold_idx)
+    # Compute class weights from this fold's training split
+    class_weights = compute_class_weights_from_df(train_df, label_col="Label")
 
     train_ds = Dataset.from_pandas(train_df)
     dev_ds = Dataset.from_pandas(dev_df)
@@ -209,7 +225,8 @@ def train_eval_one_fold(
         report_to=[],
     )
 
-    trainer = Trainer(
+    trainer = WeightedCETrainer(
+        class_weights=class_weights,
         model=model,
         args=training_args,
         train_dataset=train_tok,
@@ -247,7 +264,6 @@ def run_kfold_bert_trial(
     n_splits: int,
     seed: int,
     trial_id: int,
-    use_upsampling: bool = False,
 ) -> Tuple[Dict[str, float], np.ndarray, np.ndarray]:
     """
     Run full stratified K-fold CV for one hyperparameter trial.
@@ -255,7 +271,7 @@ def run_kfold_bert_trial(
     """
     print(
         f"Running full {n_splits}-fold CV for {transcript_col}, "
-        f"trial {trial_id} (upsampling={use_upsampling})"
+        f"trial {trial_id}"
     )
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -263,7 +279,6 @@ def run_kfold_bert_trial(
     all_y_true: List[np.ndarray] = []
     all_y_pred: List[np.ndarray] = []
 
-    # Get all folds once
     folds = list(
         get_stratified_kfold_splits(
             df,
@@ -291,7 +306,6 @@ def run_kfold_bert_trial(
             fold_idx=fold_idx,
             trial_id=trial_id,
             seed=seed,
-            use_upsampling=use_upsampling,
         )
         all_y_true.append(y_true_fold)
         all_y_pred.append(y_pred_fold)
@@ -341,10 +355,10 @@ def random_search_kfold(
     n_splits: int = 5,
     seed: int = 42,
     results_csv_path: str = "bert_random_search_results.csv",
-    use_upsampling: bool = False,
 ) -> Tuple[pd.DataFrame, Dict, np.ndarray, np.ndarray]:
     """
     Run random search over hyperparameters using full K-fold CV for each trial.
+    Uses class-weighted loss (no upsampling).
     """
     rng = np.random.default_rng(seed)
 
@@ -356,7 +370,7 @@ def random_search_kfold(
 
     print(
         f"\nRandom search for {transcript_col} with {n_trials} trials and "
-        f"{n_splits} fold CV (upsampling={use_upsampling})"
+        f"{n_splits} fold CV (class-weighted loss)"
     )
 
     for trial in range(1, n_trials + 1):
@@ -380,7 +394,6 @@ def random_search_kfold(
             n_splits=n_splits,
             seed=seed,
             trial_id=trial,
-            use_upsampling=use_upsampling,
         )
 
         trial_result = {
@@ -423,11 +436,8 @@ def random_search_kfold(
 if __name__ == "__main__":
     TRANSCRIPTS_CSV = "data/transcripts_cleaned.csv"
 
-    # Toggle this to switch between original and upsampled runs
-    USE_UPSAMPLING = True
-
     # Number of trials and folds
-    N_TRIALS = 10
+    N_TRIALS = 15
     N_SPLITS = 5
 
     # Load raw data once so we can build Transcript_ALL
@@ -444,7 +454,12 @@ if __name__ == "__main__":
     tmp_csv = "data/transcripts_with_all.csv"
     raw_df.to_csv(tmp_csv, index=False)
 
-    TRANSCRIPT_COLS = ["Transcript_PFT", "Transcript_CTD", "Transcript_SFT", "Transcript_ALL"]
+    TRANSCRIPT_COLS = [
+        "Transcript_PFT",
+        "Transcript_CTD",
+        "Transcript_SFT",
+        "Transcript_ALL",
+    ]
 
     # This helper builds one df per transcript type, dropping rows with NaNs for that column
     df_by_transcript = load_transcript_splits(
@@ -454,12 +469,10 @@ if __name__ == "__main__":
 
     best_overall = []
 
-    suffix = "_upsampled" if USE_UPSAMPLING else ""
-
     for transcript_col, df in df_by_transcript.items():
-        print(f"\nStarting random search for {transcript_col} (upsampling={USE_UPSAMPLING})")
+        print(f"\nStarting random search for {transcript_col} (class-weighted loss)")
 
-        results_csv_path = f"bert_random_search_{transcript_col}_folds{suffix}.csv"
+        results_csv_path = f"bert_random_search_{transcript_col}_folds_weighted.csv"
 
         results_df, best_cfg, y_true_best, y_pred_best = random_search_kfold(
             df=df,
@@ -469,7 +482,6 @@ if __name__ == "__main__":
             n_splits=N_SPLITS,
             seed=42,
             results_csv_path=results_csv_path,
-            use_upsampling=USE_UPSAMPLING,
         )
 
         best_row = best_cfg.copy()
@@ -485,9 +497,9 @@ if __name__ == "__main__":
         fig, ax = plt.subplots()
         disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=CLASS_NAMES)
         disp.plot(ax=ax, cmap="Blues", values_format="d")
-        ax.set_title(f"Confusion Matrix - {transcript_col}{suffix}")
+        ax.set_title(f"Confusion Matrix - {transcript_col} (class-weighted)")
 
-        cm_filename = f"bert_confusion_matrix_{transcript_col}{suffix}.png"
+        cm_filename = f"bert_confusion_matrix_{transcript_col}_weighted.png"
         fig.savefig(cm_filename, dpi=300, bbox_inches="tight")
         plt.close(fig)
 
@@ -498,12 +510,12 @@ if __name__ == "__main__":
             zero_division=0,
         )
 
-        print(f"\nClassification report for {transcript_col}{suffix}:")
+        print(f"\nClassification report for {transcript_col} (class-weighted):")
         print(report)
 
-        report_filename = f"bert_classification_report_{transcript_col}{suffix}.txt"
+        report_filename = f"bert_classification_report_{transcript_col}_weighted.txt"
         with open(report_filename, "w") as f:
-            f.write(f"Classification report for {transcript_col}{suffix}\n\n")
+            f.write(f"Classification report for {transcript_col} (class-weighted)\n\n")
             f.write(report)
             f.write("\n")
             f.write("\nBest trial CV metrics:\n")
@@ -512,14 +524,14 @@ if __name__ == "__main__":
             f.write(f"weighted_f1 = {best_cfg['weighted_f1']}\n")
 
     best_df = pd.DataFrame(best_overall).sort_values("macro_f1", ascending=False)
-    best_df.to_csv(f"bert_random_search_best_per_transcript{suffix}.csv", index=False)
+    best_df.to_csv("bert_random_search_best_per_transcript_weighted.csv", index=False)
 
-    summary_path = f"bert_random_search_summary{suffix}.txt"
+    summary_path = "bert_random_search_summary_weighted.txt"
     with open(summary_path, "w") as f:
         f.write("Best config per transcript type (sorted by macro_f1):\n\n")
         f.write(best_df.to_string(index=False))
         f.write("\n")
 
-    print("\nFinished random search for all transcript types.")
+    print("\nFinished random search for all transcript types (class-weighted loss).")
     print("Best configs table:")
     print(best_df)
