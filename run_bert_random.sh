@@ -1,17 +1,17 @@
 #!/bin/bash
-#SBATCH --partition=gpu          # NEU GPU partition
+#SBATCH --partition=gpu
 #SBATCH --nodes=1
-#SBATCH --gres=gpu:1             # request 1 GPU
+#SBATCH --gres=gpu:1
 #SBATCH --time=08:00:00
-#SBATCH --job-name=bert_random_weighted
+#SBATCH --job-name=bert_random_search
 #SBATCH --mem=16GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --output=logs/bert_random_weighted_%j.out
-#SBATCH --error=logs/bert_random_weighted_%j.err
+#SBATCH --output=logs/bert_random_search_%j.out
+#SBATCH --error=logs/bert_random_search_%j.err
 
 echo "=========================================="
-echo " BERT RANDOM SEARCH (CLASS-WEIGHTED, NEU GPU) "
+echo " BERT RANDOM SEARCH (UPSAMPLING / CLASS-WEIGHTS FLAGS IN PY FILE) "
 echo "=========================================="
 echo "Job started at: $(date)"
 echo "Job ID: $SLURM_JOB_ID"
@@ -20,18 +20,21 @@ echo "Submit dir: $SLURM_SUBMIT_DIR"
 echo "=========================================="
 echo ""
 
+# Create logs directory
 mkdir -p logs
 
-# -------------------------------
-# Modules (Explorer)
-# -------------------------------
+# -------------------------------------------
+# Load modules (Explorer)
+# -------------------------------------------
 module load anaconda3/2024.06
 module load cuda/12.1.1
 
-# -------------------------------
-# Conda env
-# -------------------------------
+# -------------------------------------------
+# Enable conda and activate env
+# -------------------------------------------
+# This line is CRUCIAL in batch jobs
 source /shared/EL9/explorer/anaconda3/2024.06/etc/profile.d/conda.sh
+
 conda activate cs4120-bert
 
 echo "Environment activated."
@@ -39,9 +42,9 @@ echo "Python executable: $(which python)"
 python -c "import sys; print('sys.executable:', sys.executable)"
 echo ""
 
-# -------------------------------
-# Quick GPU sanity check
-# -------------------------------
+# -------------------------------------------
+# GPU check
+# -------------------------------------------
 echo "=========================================="
 echo " GPU CHECK "
 echo "=========================================="
@@ -59,11 +62,11 @@ if torch.cuda.is_available():
 print()
 EOF
 
-# -------------------------------
+# -------------------------------------------
 # Run BERT random search
-# -------------------------------
+# -------------------------------------------
 echo "=========================================="
-echo " RUNNING RANDOM SEARCH (CLASS-WEIGHTED) "
+echo " RUNNING RANDOM SEARCH (FLAGS IN bert_random_search.py) "
 echo "=========================================="
 
 START_TIME=$(date +%s)
@@ -72,8 +75,12 @@ cd "$SLURM_SUBMIT_DIR"
 echo "Working directory: $(pwd)"
 echo ""
 
-# Use the weighted version you just created
-python -m bert.bert_random_search_weighted
+# If bert_random_search.py is in a bert/ package, use this:
+python -m bert.bert_random_search
+
+# If bert_random_search.py is in the current directory (no package),
+# comment out the line above and use:
+# python bert_random_search.py
 
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))
