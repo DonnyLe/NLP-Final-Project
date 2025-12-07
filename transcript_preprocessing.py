@@ -275,6 +275,52 @@ def load_transcript_splits(
 
     return df_by_transcript
 
+def add_binary_label_column(
+    df: pd.DataFrame,
+    label_col: str = "Label",
+    new_col: str = "Binary_Label",
+    save_path: Optional[str] = None,
+) -> pd.DataFrame:
+    """
+    Add a binary label column for HC vs Impaired (MCI + Dementia).
+
+    The new column encodes:
+        0 -> Healthy Control (HC)
+        1 -> Impaired (MCI or Dementia)
+
+    Args:
+        df:
+            Input DataFrame containing either `class_col` or `label_col`.
+        label_col:
+            Name of the numeric label column with values {0, 1, 2}.
+        new_col:
+            Name of the binary label column to create.
+        save_path:
+            Optional path to save the updated DataFrame as a CSV file
+
+    Returns:
+        A new DataFrame with an added `new_col` column where:
+            0 = Healthy Control (HC)
+            1 = Impaired (MCI or Dementia)
+    """
+    df_out = df.copy()
+
+    if label_col in df_out.columns:
+        mapping = {
+            0: 0,  # HC
+            1: 1,  # MCI
+            2: 1,  # Dementia
+        }
+        df_out[new_col] = df_out[label_col].map(mapping)
+    else:
+        raise ValueError(
+            f"`{label_col}` found in DataFrame. Cannot construct {label_col}."
+        )
+
+    if save_path is not None:
+        df_out.to_csv(save_path, index=False)
+        
+    return df_out
 
 if __name__ == "__main__":
     INPUT_CSV = "data/dementia_data.csv"
@@ -286,14 +332,21 @@ if __name__ == "__main__":
         output_csv_path=OUTPUT_CSV,
     )
 
-    print("transcript_df shape:", transcript_df.shape)
-    print(transcript_df.head())
+    df = add_binary_label_column(
+        transcript_df,
+        label_col="Label",
+        new_col="Binary_Label",
+        save_path="data/transcripts_cleaned.csv",
+    )
+
+    print("df shape:", df.shape)
+    print(df.head())
 
     # 2. Print out token sizes for cleaned transcripts
     for col in ["Transcript_PFT", "Transcript_CTD", "Transcript_SFT"]:
-        if col in transcript_df.columns:
+        if col in df.columns:
             lengths = (
-                transcript_df[col]
+                df[col]
                 .fillna("")
                 .str.split()
                 .apply(len)
@@ -305,8 +358,9 @@ if __name__ == "__main__":
             print()
 
     for fold_idx, train_idx, test_idx in get_stratified_kfold_splits(
-        transcript_df, transcript_col="Transcript_PFT", label_col="Class", n_splits=5):
+        df, transcript_col="Transcript_PFT", label_col="Class", n_splits=5):
         print(f"Fold {fold_idx}: ")
         print(f"train size = {len(train_idx)}, test size = {len(test_idx)}")
+
 
     

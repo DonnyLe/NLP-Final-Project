@@ -2,16 +2,16 @@
 #SBATCH --partition=gpu
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:1
-#SBATCH --time=08:00:00
-#SBATCH --job-name=bert_random_search
+#SBATCH --time=02:00:00
+#SBATCH --job-name=bert_mnli_zs
 #SBATCH --mem=16GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --output=logs/bert_random_search_%j.out
-#SBATCH --error=logs/bert_random_search_%j.err
+#SBATCH --output=logs/bert_mnli_zs_%j.out
+#SBATCH --error=logs/bert_mnli_zs_%j.err
 
 echo "=========================================="
-echo " BERT RANDOM SEARCH (UPSAMPLING / CLASS-WEIGHTS FLAGS IN PY FILE) "
+echo " BERT-MNLI ZERO-SHOT (NEU GPU) "
 echo "=========================================="
 echo "Job started at: $(date)"
 echo "Job ID: $SLURM_JOB_ID"
@@ -20,7 +20,6 @@ echo "Submit dir: $SLURM_SUBMIT_DIR"
 echo "=========================================="
 echo ""
 
-# Create logs directory
 mkdir -p logs
 
 # -------------------------------------------
@@ -32,9 +31,7 @@ module load cuda/12.1.1
 # -------------------------------------------
 # Enable conda and activate env
 # -------------------------------------------
-# This line is CRUCIAL in batch jobs
 source /shared/EL9/explorer/anaconda3/2024.06/etc/profile.d/conda.sh
-
 conda activate cs4120-bert
 
 echo "Environment activated."
@@ -43,7 +40,7 @@ python -c "import sys; print('sys.executable:', sys.executable)"
 echo ""
 
 # -------------------------------------------
-# GPU check
+# Quick GPU sanity check
 # -------------------------------------------
 echo "=========================================="
 echo " GPU CHECK "
@@ -51,7 +48,6 @@ echo "=========================================="
 
 python << 'EOF'
 import torch
-
 print("PyTorch:", torch.__version__)
 print("CUDA available:", torch.cuda.is_available())
 print("CUDA version:", torch.version.cuda)
@@ -63,10 +59,10 @@ print()
 EOF
 
 # -------------------------------------------
-# Run BERT random search
+# Run zero-shot script
 # -------------------------------------------
 echo "=========================================="
-echo " RUNNING RANDOM SEARCH (FLAGS IN bert_random_search.py) "
+echo " RUNNING BERT-MNLI ZERO-SHOT "
 echo "=========================================="
 
 START_TIME=$(date +%s)
@@ -75,12 +71,13 @@ cd "$SLURM_SUBMIT_DIR"
 echo "Working directory: $(pwd)"
 echo ""
 
-# If bert_random_search.py is in a bert/ package, use this:
-python -m bert.bert_random_search
+# OPTION 1: bert_mnli_zero_shot.py is in a package directory, e.g. mnli_tuned_model/
+# Make sure the directory is named with underscores, NOT dashes.
+python -m mnli_tuned_model.bert_mnli_zero_shot
 
-# If bert_random_search.py is in the current directory (no package),
-# comment out the line above and use:
-# python bert_random_search.py
+# OPTION 2: bert_mnli_zero_shot.py is in the current directory
+# Comment out the line above and use:
+# python bert_mnli_zero_shot.py
 
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))
