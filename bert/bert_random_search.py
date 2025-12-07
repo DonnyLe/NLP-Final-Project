@@ -147,11 +147,7 @@ def compute_class_weights_from_df(
 
     return torch.tensor(sorted_weights, dtype=torch.float32)
 
-
-# -------------------------
-# Custom Trainer with weighted loss
-# -------------------------
-
+# source: https://discuss.huggingface.co/t/class-weights-for-bertforsequenceclassification/1674
 class WeightedCETrainer(Trainer):
     def __init__(self, class_weights: torch.Tensor, *args, **kwargs):
         super().__init__(*args, **kwargs)
