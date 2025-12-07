@@ -1,4 +1,4 @@
 transcript,tfidf__ngram_range,tfidf__min_df,tfidf__max_df,tfidf__max_features,clf__C,clf__solver,clf__class_weight,best_score
-Transcript_SFT,"(1, 1)",1,0.9,2000,10.0,lbfgs,,0.4457120221826104
-Transcript_CTD,"(1, 1)",1,0.9,2000,10.0,lbfgs,,0.44446203665501904
 Transcript_PFT,"(1, 2)",1,1.0,2000,10.0,lbfgs,,0.4169543350775749
+Transcript_CTD,"(1, 1)",1,0.9,2000,10.0,lbfgs,,0.44446203665501904
+Transcript_SFT,"(1, 1)",1,0.9,2000,10.0,lbfgs,,0.4457120221826104
