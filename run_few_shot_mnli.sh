@@ -74,7 +74,7 @@ echo "Working directory: $(pwd)"
 echo ""
 
 # If bert_few_shot_mnli.py is in the current directory:
-python -m mnli_tuned_model.bert_few_shot_mnli
+python -m mnli_tuned_model.bert_few_shot
 
 # If instead it's inside a package, e.g. nlp_experiments/bert_few_shot_mnli.py,
 # comment the line above and use:
