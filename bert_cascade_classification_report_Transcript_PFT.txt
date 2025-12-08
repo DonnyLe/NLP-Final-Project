@@ -1,0 +1,16 @@
+Cascaded 3-class report for Transcript_PFT
+
+              precision    recall  f1-score   support
+
+          HC       0.62      0.76      0.68        17
+         MCI       0.55      0.50      0.52        12
+    Dementia       0.00      0.00      0.00         3
+
+    accuracy                           0.59        32
+   macro avg       0.39      0.42      0.40        32
+weighted avg       0.53      0.59      0.56        32
+
+Metrics on test split:
+accuracy = 0.59375
+macro_f1 = 0.40198321891685734
+weighted_f1 = 0.5591390160183066
