@@ -1,0 +1,16 @@
+K-fold cascaded 3-class report for Transcript_SFT (model=roberta-large)
+
+              precision    recall  f1-score   support
+
+          HC       0.60      0.78      0.68        78
+         MCI       0.48      0.38      0.42        58
+    Dementia       0.00      0.00      0.00        16
+
+    accuracy                           0.55       152
+   macro avg       0.36      0.39      0.37       152
+weighted avg       0.49      0.55      0.51       152
+
+Metrics over all folds:
+accuracy = 0.5460526315789473
+macro_f1 = 0.366951566951567
+weighted_f1 = 0.5092442645074224
