@@ -474,7 +474,7 @@ def random_search_kfold(
 
 
 # =========================
-# Single-split training for cascade
+# Single-split training helper (used per fold)
 # =========================
 
 def train_binary_single_split(
@@ -601,146 +601,162 @@ def extract_hparams_from_best_cfg(best_cfg: Dict) -> Dict:
     return {k: best_cfg[k] for k in keys}
 
 
-def run_cascade_experiment(
+# =========================
+# K-fold cascaded experiment (option 1)
+# =========================
+
+def run_cascade_kfold(
     base_df: pd.DataFrame,
     transcript_col: str,
     best_cfg_hc_nonhc: Dict,
     best_cfg_mci_dem: Dict,
+    n_splits: int,
     seed: int = 42,
     model_name: str = MODEL_NAME,
     use_class_weights: bool = True,
     use_upsampling: bool = False,
 ) -> None:
     """
-    Train two binary models with best hyperparams on a single
-    stratified train/test split, then evaluate the cascaded 3-class predictions.
+    Full K-fold cascaded evaluation:
+      - For each fold:
+          * train HC vs Non-HC on train split
+          * train MCI vs Dementia on Non-HC subset of train split
+          * cascade on dev split
+      - Concatenate dev predictions from all folds
+      - Compute a single confusion matrix + report.
     """
-    print(f"\nRunning cascaded HC -> Non-HC -> (MCI vs Dementia) experiment for {transcript_col}")
+    print(f"\nRunning K-fold cascaded experiment for {transcript_col}")
     print(f"Backbone model: {model_name}")
+    print(f"Using {n_splits}-fold CV for cascade.")
 
-    # Original 3-class labels
-    y_all = base_df["Label_3cls"].values
+    all_y_true: List[np.ndarray] = []
+    all_y_pred: List[np.ndarray] = []
 
-    train_idx, test_idx = train_test_split(
-        np.arange(len(base_df)),
-        test_size=0.2,
-        random_state=seed,
-        stratify=y_all,
+    folds = list(
+        get_stratified_kfold_splits(
+            base_df,
+            transcript_col=transcript_col,
+            label_col="Label_3cls",
+            n_splits=n_splits,
+            seed=seed,
+        )
     )
 
-    train_df = base_df.iloc[train_idx].reset_index(drop=True)
-    test_df = base_df.iloc[test_idx].reset_index(drop=True)
+    for fold_idx, train_idx, dev_idx in folds:
+        print(f"\n--- Cascade Fold {fold_idx} ---")
 
-    # --- Model A: HC vs Non-HC ---
-    train_A = train_df.copy()
-    test_A = test_df.copy()
+        train_df = base_df.iloc[train_idx].reset_index(drop=True)
+        dev_df = base_df.iloc[dev_idx].reset_index(drop=True)
 
-    train_A["Label_bin"] = (train_A["Class"] != "HC").astype(int)
-    test_A["Label_bin"] = (test_A["Class"] != "HC").astype(int)
+        # --- Model A: HC vs Non-HC ---
+        train_A = train_df.copy()
+        dev_A = dev_df.copy()
+        train_A["Label_bin"] = (train_A["Class"] != "HC").astype(int)
+        dev_A["Label_bin"] = (dev_A["Class"] != "HC").astype(int)
 
-    print("\nTraining Model A: HC vs Non-HC on train split")
-    hparams_A = extract_hparams_from_best_cfg(best_cfg_hc_nonhc)
-    preds_A_test = train_binary_single_split(
-        train_df=train_A,
-        dev_df=test_A,
-        transcript_col=transcript_col,
-        label_col="Label_bin",
-        model_name=model_name,
-        max_len=hparams_A["max_len"],
-        learning_rate=hparams_A["learning_rate"],
-        num_train_epochs=hparams_A["num_train_epochs"],
-        batch_size=hparams_A["batch_size"],
-        weight_decay=hparams_A["weight_decay"],
-        warmup_ratio=hparams_A["warmup_ratio"],
-        use_class_weights=use_class_weights,
-        use_upsampling=use_upsampling,
-        seed=seed,
-    )
+        print("Training Model A: HC vs Non-HC on this fold's train split")
+        hparams_A = extract_hparams_from_best_cfg(best_cfg_hc_nonhc)
+        preds_A_dev = train_binary_single_split(
+            train_df=train_A,
+            dev_df=dev_A,
+            transcript_col=transcript_col,
+            label_col="Label_bin",
+            model_name=model_name,
+            max_len=hparams_A["max_len"],
+            learning_rate=hparams_A["learning_rate"],
+            num_train_epochs=hparams_A["num_train_epochs"],
+            batch_size=hparams_A["batch_size"],
+            weight_decay=hparams_A["weight_decay"],
+            warmup_ratio=hparams_A["warmup_ratio"],
+            use_class_weights=use_class_weights,
+            use_upsampling=use_upsampling,
+            seed=seed + fold_idx,
+        )
 
-    # --- Model B: MCI vs Dementia ---
-    train_B = train_df[train_df["Class"] != "HC"].copy()
-    test_B_full = test_df.copy()  # we will still run B on all test samples
+        # --- Model B: MCI vs Dementia ---
+        train_B = train_df[train_df["Class"] != "HC"].copy()
+        dev_B_full = dev_df.copy()  # we still run B on all dev samples for simplicity
 
-    train_B["Label_bin"] = (train_B["Class"] == "Dementia").astype(int)
-    # For test, we only need labels for Non-HC if we want diagnostics;
-    # but for prediction, we care about all rows, so set any HC label to 0 (won't be used).
-    test_B_full["Label_bin"] = np.where(
-        test_B_full["Class"] == "Dementia",
-        1,
-        0,
-    )
+        train_B["Label_bin"] = (train_B["Class"] == "Dementia").astype(int)
+        dev_B_full["Label_bin"] = np.where(
+            dev_B_full["Class"] == "Dementia",
+            1,
+            0,
+        )
 
-    print("\nTraining Model B: MCI vs Dementia on Non-HC subset of train")
-    hparams_B = extract_hparams_from_best_cfg(best_cfg_mci_dem)
-    preds_B_test_full = train_binary_single_split(
-        train_df=train_B,
-        dev_df=test_B_full,
-        transcript_col=transcript_col,
-        label_col="Label_bin",
-        model_name=model_name,
-        max_len=hparams_B["max_len"],
-        learning_rate=hparams_B["learning_rate"],
-        num_train_epochs=hparams_B["num_train_epochs"],
-        batch_size=hparams_B["batch_size"],
-        weight_decay=hparams_B["weight_decay"],
-        warmup_ratio=hparams_B["warmup_ratio"],
-        use_class_weights=use_class_weights,
-        use_upsampling=use_upsampling,
-        seed=seed + 1,
-    )
+        print("Training Model B: MCI vs Dementia on Non-HC subset of this fold's train split")
+        hparams_B = extract_hparams_from_best_cfg(best_cfg_mci_dem)
+        preds_B_dev_full = train_binary_single_split(
+            train_df=train_B,
+            dev_df=dev_B_full,
+            transcript_col=transcript_col,
+            label_col="Label_bin",
+            model_name=model_name,
+            max_len=hparams_B["max_len"],
+            learning_rate=hparams_B["learning_rate"],
+            num_train_epochs=hparams_B["num_train_epochs"],
+            batch_size=hparams_B["batch_size"],
+            weight_decay=hparams_B["weight_decay"],
+            warmup_ratio=hparams_B["warmup_ratio"],
+            use_class_weights=use_class_weights,
+            use_upsampling=use_upsampling,
+            seed=seed + 100 + fold_idx,
+        )
 
-    # --- Build cascaded 3-class predictions on test set ---
-    # Original 3-class ground truth for test
-    y_true_3cls = test_df["Label_3cls"].values
+        # --- Cascaded predictions on this fold's dev split ---
+        y_true_3cls_fold = dev_df["Label_3cls"].values
+        cascade_preds_fold = []
 
-    # Map: 0 -> HC, 1 -> MCI, 2 -> Dementia
-    cascade_preds_3cls = []
-
-    for i in range(len(test_df)):
-        pred_A = preds_A_test[i]
-        if pred_A == 0:
-            # Model A says HC
-            cascade_preds_3cls.append(0)
-        else:
-            # Model A says Non-HC -> use Model B
-            pred_B = preds_B_test_full[i]  # 0 = MCI, 1 = Dementia
-            if pred_B == 0:
-                cascade_preds_3cls.append(1)  # MCI
+        for i in range(len(dev_df)):
+            pred_A = preds_A_dev[i]
+            if pred_A == 0:
+                # Model A says HC
+                cascade_preds_fold.append(0)
             else:
-                cascade_preds_3cls.append(2)  # Dementia
+                # Model A says Non-HC -> use Model B
+                pred_B = preds_B_dev_full[i]  # 0 = MCI, 1 = Dementia
+                if pred_B == 0:
+                    cascade_preds_fold.append(1)  # MCI
+                else:
+                    cascade_preds_fold.append(2)  # Dementia
 
-    cascade_preds_3cls = np.array(cascade_preds_3cls)
+        all_y_true.append(y_true_3cls_fold)
+        all_y_pred.append(np.array(cascade_preds_fold))
 
-    # --- Evaluate 3-class cascade ---
-    metrics_3cls = compute_metrics_from_labels(y_true_3cls, cascade_preds_3cls)
-    print("\nCascaded 3-class metrics on test split:")
+    y_true_all = np.concatenate(all_y_true)
+    cascade_preds_3cls = np.concatenate(all_y_pred)
+
+    # --- Evaluate full K-fold cascade ---
+    metrics_3cls = compute_metrics_from_labels(y_true_all, cascade_preds_3cls)
+    print("\nK-fold Cascaded 3-class metrics:")
     print("  accuracy:", metrics_3cls["accuracy"])
     print("  macro_f1:", metrics_3cls["macro_f1"])
     print("  weighted_f1:", metrics_3cls["weighted_f1"])
 
-    cm = confusion_matrix(y_true_3cls, cascade_preds_3cls, labels=[0, 1, 2])
+    cm = confusion_matrix(y_true_all, cascade_preds_3cls, labels=[0, 1, 2])
 
     fig, ax = plt.subplots()
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=CLASS_NAMES)
     disp.plot(ax=ax, cmap="Blues", values_format="d")
-    ax.set_title(f"Cascaded RoBERTa-large Confusion Matrix - {transcript_col}")
-    fig.savefig(f"bert_cascade_confusion_matrix_{transcript_col}.png", dpi=300, bbox_inches="tight")
+    ax.set_title(f"Cascaded RoBERTa-large Confusion Matrix (K-fold) - {transcript_col}")
+    fig.savefig(f"bert_cascade_kfold_confusion_matrix_{transcript_col}.png",
+                dpi=300, bbox_inches="tight")
     plt.close(fig)
 
     report = classification_report(
-        y_true_3cls,
+        y_true_all,
         cascade_preds_3cls,
         target_names=CLASS_NAMES,
         zero_division=0,
     )
-    print("\nCascaded 3-class classification report:")
+    print("\nK-fold Cascaded 3-class classification report:")
     print(report)
 
-    with open(f"bert_cascade_classification_report_{transcript_col}.txt", "w") as f:
-        f.write(f"Cascaded 3-class report for {transcript_col} (model={model_name})\n\n")
+    with open(f"bert_cascade_kfold_classification_report_{transcript_col}.txt", "w") as f:
+        f.write(f"K-fold cascaded 3-class report for {transcript_col} (model={model_name})\n\n")
         f.write(report)
         f.write("\n")
-        f.write("Metrics on test split:\n")
+        f.write("Metrics over all folds:\n")
         f.write(f"accuracy = {metrics_3cls['accuracy']}\n")
         f.write(f"macro_f1 = {metrics_3cls['macro_f1']}\n")
         f.write(f"weighted_f1 = {metrics_3cls['weighted_f1']}\n")
@@ -897,17 +913,18 @@ if __name__ == "__main__":
             f.write("\n")
 
         # -------------------
-        # Cascaded 3-class experiment using best configs
+        # K-fold cascaded 3-class experiment using best configs
         # -------------------
-        run_cascade_experiment(
+        run_cascade_kfold(
             base_df=base_df,
             transcript_col=transcript_col,
             best_cfg_hc_nonhc=best_cfg_A,
             best_cfg_mci_dem=best_cfg_B,
+            n_splits=N_SPLITS,
             seed=SEED,
             model_name=MODEL_NAME,
             use_class_weights=USE_CLASS_WEIGHTS,
             use_upsampling=USE_UPSAMPLING,
         )
 
-    print("\nAll cascaded experiments finished for PFT / CTD / SFT with RoBERTa-large.")
+    print("\nAll cascaded K-fold experiments finished for PFT / CTD / SFT with RoBERTa-large.")
