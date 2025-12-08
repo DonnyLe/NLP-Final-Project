@@ -1,0 +1,21 @@
+Few-shot MNLI-initialized BERT classification report for Transcript_CTD
+
+              precision    recall  f1-score   support
+
+          HC       1.00      0.25      0.40         4
+         MCI       0.44      1.00      0.62         4
+    Dementia       0.50      0.25      0.33         4
+
+    accuracy                           0.50        12
+   macro avg       0.65      0.50      0.45        12
+weighted avg       0.65      0.50      0.45        12
+
+
+Metrics:
+accuracy = 0.5
+macro_f1 = 0.44957264957264953
+weighted_f1 = 0.44957264957264953
+precision_macro = 0.6481481481481481
+recall_macro = 0.5
+precision_weighted = 0.6481481481481481
+recall_weighted = 0.5

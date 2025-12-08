@@ -1,0 +1,21 @@
+Few-shot MNLI-initialized BERT classification report for Transcript_SFT
+
+              precision    recall  f1-score   support
+
+          HC       0.40      0.50      0.44         4
+         MCI       0.50      0.50      0.50         4
+    Dementia       0.33      0.25      0.29         4
+
+    accuracy                           0.42        12
+   macro avg       0.41      0.42      0.41        12
+weighted avg       0.41      0.42      0.41        12
+
+
+Metrics:
+accuracy = 0.4166666666666667
+macro_f1 = 0.41005291005291006
+weighted_f1 = 0.41005291005291006
+precision_macro = 0.41111111111111115
+recall_macro = 0.4166666666666667
+precision_weighted = 0.41111111111111115
+recall_weighted = 0.4166666666666667
