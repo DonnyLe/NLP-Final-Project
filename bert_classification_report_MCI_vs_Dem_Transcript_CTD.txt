@@ -1,0 +1,11 @@
+Binary MCI vs Dementia report for Transcript_CTD (model=roberta-large)
+
+              precision    recall  f1-score   support
+
+         MCI       0.81      0.93      0.86        58
+    Dementia       0.43      0.19      0.26        16
+
+    accuracy                           0.77        74
+   macro avg       0.62      0.56      0.56        74
+weighted avg       0.72      0.77      0.73        74
+

@@ -1,0 +1,11 @@
+Binary MCI vs Dementia report for Transcript_PFT (model=roberta-large)
+
+              precision    recall  f1-score   support
+
+         MCI       0.81      0.92      0.86        59
+    Dementia       0.38      0.19      0.25        16
+
+    accuracy                           0.76        75
+   macro avg       0.59      0.55      0.55        75
+weighted avg       0.71      0.76      0.73        75
+
