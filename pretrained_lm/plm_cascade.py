@@ -15,7 +15,7 @@ from sklearn.metrics import (
 
 from transcript_preprocessing import load_transcript_splits, get_stratified_kfold_splits
 
-from plm_utils import (
+from pretrained_lm.plm_utils import (
     compute_metrics_from_labels,
     random_search_kfold,
     train_binary_single_split,

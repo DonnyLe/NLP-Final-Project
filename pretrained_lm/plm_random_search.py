@@ -15,7 +15,7 @@ from sklearn.metrics import (
 
 from transcript_preprocessing import load_transcript_splits
 
-from plm_utils import random_search_kfold
+from pretrained_lm.plm_utils import random_search_kfold
 
 CLASS_NAMES = ["HC", "MCI", "Dementia"]
 
