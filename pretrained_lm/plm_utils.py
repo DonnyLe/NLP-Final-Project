@@ -526,11 +526,8 @@ def random_search_kfold(
     return results_df, best_cfg, best_y_true, best_y_pred
 
 
-# =========================
 # Single-split trainer (used in cascade)
-# =========================
-
-def train_binary_single_split(
+def train_binary_single_fold(
     train_df: pd.DataFrame,
     dev_df: pd.DataFrame,
     transcript_col: str,

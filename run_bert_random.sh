@@ -3,15 +3,15 @@
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:1
 #SBATCH --time=08:00:00
-#SBATCH --job-name=plm_random_search
-#SBATCH --mem=16GB
+#SBATCH --job-name=plm_roberta_large_search
+#SBATCH --mem=24GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --output=logs/plm_random_search_%j.out
-#SBATCH --error=logs/plm_random_search_%j.err
+#SBATCH --output=logs/plm_roberta_large_%j.out
+#SBATCH --error=logs/plm_roberta_large_%j.err
 
 echo "=========================================="
-echo " PLM RANDOM SEARCH (UPSAMPLING / CLASS-WEIGHTS FLAGS IN PY FILE) "
+echo " PLM RANDOM SEARCH – roberta-large "
 echo "=========================================="
 echo "Job started at: $(date)"
 echo "Job ID: $SLURM_JOB_ID"
@@ -32,9 +32,7 @@ module load cuda/12.1.1
 # -------------------------------------------
 # Enable conda and activate env
 # -------------------------------------------
-# This line is CRUCIAL in batch jobs
 source /shared/EL9/explorer/anaconda3/2024.06/etc/profile.d/conda.sh
-
 conda activate cs4120-bert
 
 echo "Environment activated."
@@ -62,11 +60,12 @@ if torch.cuda.is_available():
 print()
 EOF
 
+
 # -------------------------------------------
 # Run PLM random search
 # -------------------------------------------
 echo "=========================================="
-echo " RUNNING RANDOM SEARCH (FLAGS IN plm_random_search.py) "
+echo " RUNNING RANDOM SEARCH (MODEL = ${PLM_MODEL_NAME}) "
 echo "=========================================="
 
 START_TIME=$(date +%s)
@@ -75,8 +74,11 @@ cd "$SLURM_SUBMIT_DIR"
 echo "Working directory: $(pwd)"
 echo ""
 
-python -m pretrained_lm.plm_cascade
+# If plm_random_search.py is in a plm/ package:
+python -m pretrained_lm.plm_random_search
 
+# If it's in the current directory instead, use:
+# python plm_random_search.py
 
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))

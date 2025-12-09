@@ -19,10 +19,12 @@ from pretrained_lm.plm_utils import random_search_kfold
 
 CLASS_NAMES = ["HC", "MCI", "Dementia"]
 
-# ------------------------------------------------------------------
-# MODEL CONFIG
-# ------------------------------------------------------------------
-MODEL_NAME = os.environ.get("PLM_MODEL_NAME", "bert-base-uncased")
+# Model Config
+
+
+# MODEL_NAME = "bert-base-uncased"
+MODEL_NAME ='roberta-large'
+
 MODEL_TAG = MODEL_NAME.split("/")[-1]
 
 

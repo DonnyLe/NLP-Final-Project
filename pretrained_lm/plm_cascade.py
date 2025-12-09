@@ -21,14 +21,14 @@ from pretrained_lm.plm_utils import (
     train_binary_single_fold,
 )
 
-# 3-class names (original task)
 CLASS_NAMES = ["HC", "MCI", "Dementia"]
 
-# ------------------------------------------------------------------
-# MODEL CONFIG
-# ------------------------------------------------------------------
-# You can override via env var: PLM_MODEL_NAME=roberta-large
-MODEL_NAME = "bert-base-uncased"
+# Modal Config
+
+
+# MODEL_NAME = "bert-base-uncased"
+MODEL_NAME ='roberta-large'
+
 MODEL_TAG = MODEL_NAME.split("/")[-1]
 
 
