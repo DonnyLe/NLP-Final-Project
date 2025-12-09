@@ -80,7 +80,7 @@ echo ""
 export PLM_MODEL_NAME=bert-base-uncased
 
 # If plm_cascade.py is in the project root:
-python -m pretrained_lm.plm_cascade.py
+python -m pretrained_lm.plm_cascade
 
 
 END_TIME=$(date +%s)
