@@ -1,265 +1,62 @@
-### NLP Final Project - Dementia Classifier
-Overview
-This dataset contains linguistic, acoustic, and demographic information extracted from spoken tasks
-performed by participants with varying cognitive statuses. It is intended for machine learning, linguistic
-analysis, and dementia-related research.
+# Exploring Dementia Classification Models
 
-File Description
-dementia_data.csv contains one row per participant/task session including metadata, transcripts, and
-pre-computed speech and language features.
+This project investigates a variety of models and approaches for classifying cognitive speech transcripts as Healthy Control (HC), Mild Cognitive Impairment (MCI), and Dementia—using three types of speech transcripts: **Phonemic Fluency Task (PFT)**, **Cookie Theft Description (CTD)**, and **Semantic Fluency Task (SFT)**.
 
-1. Record-ID
+Our primary goal is to compare how different modeling approaches perform and to identify which transcript types and architectures provide the most reliable signals for dementia detection.
 
-Type: string
+The dataset consists of **157 total samples**: 82 HC, 59 MCI, and 16 Dementia
 
-Description: Unique ID for each participant/session.
+All experiments were evaluated using **stratified 5-fold cross-validation** to maintain consistent label distribution across folds.
 
-Examples: 001, A03
+---
 
-Range: Any alphanumeric string.
+## Project Goals
+- Determine whether linguistic patterns in clinical transcripts can differentiate HC, MCI, and Dementia.
+- Determine if models perform better at distinugishing healthy vs. cognitively impaired speech with binary classification by combining MCI and Dementia into one Cognitively Impaired (CI) class.
+- Compare multiple model families, including Logistic Regression, LSTMs, and BERT.
+- Assess how transcript type (CTD, PFT, SFT) influences classification performance.
+- Identify which modeling approaches are most robust under a small, imbalanced dataset.
 
-2. TrainOrDev
+---
 
-Type: string
+## Models Implemented
 
-Description: Indicates whether the sample belongs to the training or development set.
+### 1. Logistic Regression
+A multinomial logistic regression model was trained separately for each transcript type using **TF-IDF features**.  
+Key properties:
+- Strong classical baseline for sparse text data  
+- Evaluated in both multiclass and binary (HC vs. CI) tasks  
+- Captures lexical frequency patterns without modeling word order  
 
-Examples: Train, Dev
+---
 
-Range: {Train, Dev}
+### 2. Logistic Regression with Feature Engineering
+The original dataset included linguistic features for CTD (e.g., token count, type–token ratio, Brunet’s index, filler count, repetitions). We replicated these feature extraction procedures for PFT and SFT to create a unified feature set across all transcript types.
 
-3. Class
+We tested the model with and without the speech transcripts in the input.
 
-Type: string
+This model combines:
+- TF-IDF text representation  
+- Linguistic / psycholinguistic features  
+- Metadata where available  
 
-Description: Diagnostic group of the participant.
+---
 
-Examples: Control, MCI, Dementia
+### 3. LSTM / BiLSTM Neural Networks
+We implemented both LSTM and BiLSTM sequence models to capture temporal and contextual patterns in each transcript.
 
-Range: Finite discrete set.
+Model components:
+- Tokenization with `<UNK>` handling for out-of-vocabulary words  
+- Padding to fixed sequence lengths per transcript type  
+- Embedding layer → (Bi)LSTM → Dropout → optional dense hidden layer → softmax output (or sigmoid for binary)
 
-4. Gender
+---
 
-Type: integer
+### 4. BERT Fine-Tuning (Transformer Model)
+We fine-tuned **bert-base-uncased** separately for CTD, PFT, and SFT to evaluate transformer-based performance.
 
-Description: Encoded gender
+Setup included:
+- HuggingFace `Trainer` API  
+- Truncation/padding to a fixed maximum token length  
+- Hyperparameter exploration of learning rate, warmup ratio, and epochs  
 
-0 = female
-
-1 = male
-
-Examples: 0, 1
-
-Range: {0, 1}
-
-5. Age
-
-Type: string (may include ranges or approximations)
-
-Description: Participant age.
-
-Examples: 78, 70–75, ~80
-
-Range: approx. 50–95
-
-6. Converted-MMSE
-
-Type: float
-
-Description: Cognitive score (Mini-Mental State Examination), converted to a 0–30 scale.
-
-Examples: 22.0, 28.5, 15.0
-
-Range: 0–30
-
-7. Transcript_PFT
-
-Type: string
-
-Description: Transcript of the Picture Description Task (PFT).
-
-Examples: Full paragraph describing a scene.
-
-Range: Variable-length text.
-
-8. Transcript_CTD
-
-Type: string
-
-Description: Transcript of the Category/Topic Description Task.
-
-Examples: Multi-sentence descriptive responses.
-
-Range: Variable-length text.
-
-Notes: One missing value.
-
-9. Transcript_SFT
-
-Type: string
-
-Description: Semantic Fluency Task transcript (e.g., listing items).
-
-Examples: “dog, cat, horse”
-
-Range: Short lists or sequences of words.
-
-10. Class_label
-
-Type: integer
-
-Description: Numeric encoding of cognitive diagnosis.
-
-Examples: 0, 1, 2
-
-Range: Small set of class integers.
-
-11. total_seconds
-
-Type: integer
-
-Description: Length of the recording in seconds.
-
-Examples: 60, 180, 240
-
-Range: ~10–600
-
-12. Parentheses_Content
-
-Type: string
-
-Description: Extracted content inside parentheses from transcripts.
-
-Examples: "(laughs)", "(pause)"
-
-Range: Short strings or empty.
-
-13. CTD_Cleaned
-
-Type: string
-
-Description: Cleaned and normalized version of the CTD transcript.
-
-Examples: Lowercased, punctuation-stripped text.
-
-Range: Variable-length cleaned text.
-
-14. found_fillers
-
-Type: string
-
-Description: Serialized list of detected filler words.
-
-Examples: "['um', 'uh']", "[]"
-
-Range: 0 or more items.
-
-15. filler_list
-
-Type: string
-
-Description: Ordered list of filler word occurrences.
-
-Examples: "['like', 'um']", "['uh']"
-
-Range: 0–many items.
-
-16. filler_count
-
-Type: integer
-
-Description: Total number of filler words detected.
-
-Examples: 0, 3, 12
-
-Range: 0–20
-
-17. token_count
-
-Type: integer
-
-Description: Total number of tokens (words) in the transcript.
-
-Examples: 50, 100, 250
-
-Range: 0–400
-
-18. type_count
-
-Type: integer
-
-Description: Number of unique word types.
-
-Examples: 20, 70, 120
-
-Range: 0–200
-
-19. type_token_ratio
-
-Type: float
-
-Description: Lexical diversity = type_count / token_count.
-
-Examples: 0.20, 0.55
-
-Range: 0–1
-
-20. ma_ttr
-
-Type: float
-
-Description: Moving-Average Type Token Ratio (stable lexical diversity measure).
-
-Examples: 0.45, 0.60
-
-Range: typically 0–1
-
-21. brunets_index
-
-Type: float
-
-Description: Brunet’s Index, a lexical richness measure.
-
-Examples: 10.2, 12.5
-
-Range: typically 8–18
-
-22. content_density
-
-Type: float
-
-Description: Ratio of content words (nouns, verbs, adjectives, adverbs) to total words.
-
-Examples: 0.45, 0.62
-
-Range: 0–1
-
-23. repetitions
-
-Type: dict
-
-Description: Dictionary of repeated words and their frequencies.
-
-Examples: {}, {"the": 10, "is": 5}
-
-Range: Arbitrary dictionary of word → count pairs
-
-24. sentence_count
-
-Type: integer
-
-Description: Number of sentences in the transcript.
-
-Examples: 0, 4, 7
-
-Range: 0–15
-
-25. average_words_per_sentence
-
-Type: float
-
-Description: Mean sentence length.
-
-Examples: 15.2, 44.0
-
-Range: 0–50
