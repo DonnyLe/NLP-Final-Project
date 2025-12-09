@@ -3,16 +3,15 @@
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:1
 #SBATCH --time=08:00:00
-#SBATCH --job-name=roberta_cascade_plm
-#SBATCH --mem=16GB
+#SBATCH --job-name=plm_roberta_large_search
+#SBATCH --mem=24GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --output=logs/roberta_cascade_plm_%j.out
-#SBATCH --error=logs/roberta_cascade_plm_%j.err
+#SBATCH --output=logs/plm_roberta_large_%j.out
+#SBATCH --error=logs/plm_roberta_large_%j.err
 
 echo "=========================================="
-echo " RoBERTa-LARGE CASCADED BINARY (HC vs Non-HC, MCI vs Dementia) "
-echo " Module: pretrained_lm.plm_cascade (PLM_MODEL_NAME=roberta-large) "
+echo " PLM RANDOM SEARCH – roberta-large "
 echo "=========================================="
 echo "Job started at: $(date)"
 echo "Job ID: $SLURM_JOB_ID"
@@ -33,9 +32,7 @@ module load cuda/12.1.1
 # -------------------------------------------
 # Enable conda and activate env
 # -------------------------------------------
-# This line is CRUCIAL in batch jobs
 source /shared/EL9/explorer/anaconda3/2024.06/etc/profile.d/conda.sh
-
 conda activate cs4120-bert
 
 echo "Environment activated."
@@ -64,10 +61,17 @@ print()
 EOF
 
 # -------------------------------------------
-# Run RoBERTa-large cascaded binary script
+# Set model to roberta-large
+# -------------------------------------------
+export PLM_MODEL_NAME="roberta-large"
+echo "Using PLM_MODEL_NAME=${PLM_MODEL_NAME}"
+echo ""
+
+# -------------------------------------------
+# Run PLM random search
 # -------------------------------------------
 echo "=========================================="
-echo " RUNNING pretrained_lm.plm_cascade (PLM_MODEL_NAME=roberta-large) "
+echo " RUNNING RANDOM SEARCH (MODEL = ${PLM_MODEL_NAME}) "
 echo "=========================================="
 
 START_TIME=$(date +%s)
@@ -76,12 +80,12 @@ cd "$SLURM_SUBMIT_DIR"
 echo "Working directory: $(pwd)"
 echo ""
 
-# Use RoBERTa-large via env var consumed in your PLM code
-export PLM_MODEL_NAME=roberta-large
-echo "Using PLM_MODEL_NAME=${PLM_MODEL_NAME}"
 
-# If plm_cascade.py is in the pretrained_lm package:
-python -m pretrained_lm.plm_cascade
+# If plm_random_search.py is in a plm/ package:
+python -m pretrained_lm.plm_random_search
+
+# If it's in the current directory instead, use:
+# python plm_random_search.py
 
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))

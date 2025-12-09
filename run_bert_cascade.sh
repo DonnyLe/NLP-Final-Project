@@ -12,7 +12,7 @@
 
 echo "=========================================="
 echo " BERT-BASE CASCADED BINARY (HC vs Non-HC, MCI vs Dementia) "
-echo " Module: plm_cascade (MODEL_NAME=bert-base-uncased) "
+echo " Module: pretrained_lm.plm_cascade (PLM_MODEL_NAME=bert-base-uncased) "
 echo "=========================================="
 echo "Job started at: $(date)"
 echo "Job ID: $SLURM_JOB_ID"
@@ -67,7 +67,7 @@ EOF
 # Run PLM cascaded script with BERT-base
 # -------------------------------------------
 echo "=========================================="
-echo " RUNNING plm_cascade.py (PLM_MODEL_NAME=bert-base-uncased) "
+echo " RUNNING pretrained_lm.plm_cascade (PLM_MODEL_NAME=bert-base-uncased) "
 echo "=========================================="
 
 START_TIME=$(date +%s)
@@ -79,9 +79,8 @@ echo ""
 # Set the model to BERT-base-uncased for plm_cascade
 export PLM_MODEL_NAME=bert-base-uncased
 
-# If plm_cascade.py is in the project root:
+# If plm_cascade.py is in the pretrained_lm package:
 python -m pretrained_lm.plm_cascade
-
 
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))

@@ -27,7 +27,8 @@ CLASS_NAMES = ["HC", "MCI", "Dementia"]
 
 
 # MODEL_NAME = "bert-base-uncased"
-MODEL_NAME ='roberta-large'
+# MODEL_NAME ='roberta-large'
+MODEL_NAME = os.environ.get("PLM_MODEL_NAME", "bert-base-uncased")
 
 MODEL_TAG = MODEL_NAME.split("/")[-1]
 
