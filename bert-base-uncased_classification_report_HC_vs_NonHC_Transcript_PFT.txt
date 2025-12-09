@@ -1,0 +1,11 @@
+Binary HC vs Non-HC report for Transcript_PFT (model=bert-base-uncased)
+
+              precision    recall  f1-score   support
+
+          HC       0.65      0.72      0.68        82
+      Non-HC       0.65      0.57      0.61        75
+
+    accuracy                           0.65       157
+   macro avg       0.65      0.65      0.65       157
+weighted avg       0.65      0.65      0.65       157
+

@@ -1,0 +1,11 @@
+Binary HC vs Non-HC report for Transcript_CTD (model=bert-base-uncased)
+
+              precision    recall  f1-score   support
+
+          HC       0.67      0.78      0.72        82
+      Non-HC       0.70      0.57      0.63        74
+
+    accuracy                           0.68       156
+   macro avg       0.68      0.67      0.67       156
+weighted avg       0.68      0.68      0.68       156
+

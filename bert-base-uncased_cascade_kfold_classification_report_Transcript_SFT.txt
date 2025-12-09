@@ -1,0 +1,16 @@
+Cascaded 3-class K-fold report for Transcript_SFT (model=bert-base-uncased)
+
+              precision    recall  f1-score   support
+
+          HC       0.63      0.73      0.67        78
+         MCI       0.43      0.31      0.36        58
+    Dementia       0.16      0.19      0.17        16
+
+    accuracy                           0.51       152
+   macro avg       0.40      0.41      0.40       152
+weighted avg       0.50      0.51      0.50       152
+
+Aggregated K-fold metrics:
+accuracy = 0.5131578947368421
+macro_f1 = 0.4019949281487743
+weighted_f1 = 0.5015673799884326
