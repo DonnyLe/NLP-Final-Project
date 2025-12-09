@@ -3,15 +3,16 @@
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:1
 #SBATCH --time=08:00:00
-#SBATCH --job-name=bert_cascade
+#SBATCH --job-name=bert_cascade_plm
 #SBATCH --mem=16GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --output=logs/bert_cascade_%j.out
-#SBATCH --error=logs/bert_cascade_%j.err
+#SBATCH --output=logs/bert_cascade_plm_%j.out
+#SBATCH --error=logs/bert_cascade_plm_%j.err
 
 echo "=========================================="
-echo " BERT CASCADED BINARY (HC vs Non-HC, MCI vs Dementia) "
+echo " BERT-BASE CASCADED BINARY (HC vs Non-HC, MCI vs Dementia) "
+echo " Module: plm_cascade (MODEL_NAME=bert-base-uncased) "
 echo "=========================================="
 echo "Job started at: $(date)"
 echo "Job ID: $SLURM_JOB_ID"
@@ -63,10 +64,10 @@ print()
 EOF
 
 # -------------------------------------------
-# Run BERT cascaded binary script
+# Run PLM cascaded script with BERT-base
 # -------------------------------------------
 echo "=========================================="
-echo " RUNNING bert.bert_cascaded_binary "
+echo " RUNNING plm_cascade.py (PLM_MODEL_NAME=bert-base-uncased) "
 echo "=========================================="
 
 START_TIME=$(date +%s)
@@ -75,8 +76,12 @@ cd "$SLURM_SUBMIT_DIR"
 echo "Working directory: $(pwd)"
 echo ""
 
-# bert.bert_cascaded_binary is a module in the bert package
-python -m bert.bert_cascaded_binary
+# Set the model to BERT-base-uncased for plm_cascade
+export PLM_MODEL_NAME=bert-base-uncased
+
+# If plm_cascade.py is in the project root:
+python -m pretrained_lm.plm_cascade.py
+
 
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))
