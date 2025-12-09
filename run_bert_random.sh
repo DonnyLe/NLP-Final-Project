@@ -3,15 +3,15 @@
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:1
 #SBATCH --time=08:00:00
-#SBATCH --job-name=bert_random_search
+#SBATCH --job-name=plm_random_search
 #SBATCH --mem=16GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --output=logs/bert_random_search_%j.out
-#SBATCH --error=logs/bert_random_search_%j.err
+#SBATCH --output=logs/plm_random_search_%j.out
+#SBATCH --error=logs/plm_random_search_%j.err
 
 echo "=========================================="
-echo " BERT RANDOM SEARCH (UPSAMPLING / CLASS-WEIGHTS FLAGS IN PY FILE) "
+echo " PLM RANDOM SEARCH (UPSAMPLING / CLASS-WEIGHTS FLAGS IN PY FILE) "
 echo "=========================================="
 echo "Job started at: $(date)"
 echo "Job ID: $SLURM_JOB_ID"
@@ -63,10 +63,10 @@ print()
 EOF
 
 # -------------------------------------------
-# Run BERT random search
+# Run PLM random search
 # -------------------------------------------
 echo "=========================================="
-echo " RUNNING RANDOM SEARCH (FLAGS IN bert_random_search.py) "
+echo " RUNNING RANDOM SEARCH (FLAGS IN plm_random_search.py) "
 echo "=========================================="
 
 START_TIME=$(date +%s)
@@ -75,12 +75,8 @@ cd "$SLURM_SUBMIT_DIR"
 echo "Working directory: $(pwd)"
 echo ""
 
-# If bert_random_search.py is in a bert/ package, use this:
-python -m bert.bert_random_search
+python -m pretrained_lm.plm_cascade
 
-# If bert_random_search.py is in the current directory (no package),
-# comment out the line above and use:
-# python bert_random_search.py
 
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))

@@ -18,7 +18,7 @@ from transcript_preprocessing import load_transcript_splits, get_stratified_kfol
 from pretrained_lm.plm_utils import (
     compute_metrics_from_labels,
     random_search_kfold,
-    train_binary_single_split,
+    train_binary_single_fold,
 )
 
 # 3-class names (original task)
@@ -89,7 +89,7 @@ def run_cascade_kfold(
         train_A["Label_bin"] = (train_A["Class"] != "HC").astype(int)
         dev_A["Label_bin"] = (dev_A["Class"] != "HC").astype(int)
 
-        preds_A_dev = train_binary_single_split(
+        preds_A_dev = train_binary_single_fold(
             train_df=train_A,
             dev_df=dev_A,
             transcript_col=transcript_col,
@@ -118,7 +118,7 @@ def run_cascade_kfold(
             0,
         )
 
-        preds_B_dev_full = train_binary_single_split(
+        preds_B_dev_full = train_binary_single_fold(
             train_df=train_B,
             dev_df=dev_B_full,
             transcript_col=transcript_col,
@@ -193,14 +193,11 @@ def run_cascade_kfold(
         f.write(f"weighted_f1 = {metrics_3cls['weighted_f1']}\n")
 
 
-# =========================
 # Main
-# =========================
-
 if __name__ == "__main__":
     TRANSCRIPTS_CSV = "data/transcripts_cleaned.csv"
 
-    # We will run on these transcript types ONLY (not Transcript_ALL)
+    # We will run on these transcript types ONLY
     TRANSCRIPT_COLS_TO_RUN = [
         "Transcript_PFT",
         "Transcript_CTD",
@@ -215,48 +212,30 @@ if __name__ == "__main__":
     USE_UPSAMPLING = False
     USE_CLASS_WEIGHTS = True
 
+    # Load original CSV directly
     raw_df = pd.read_csv(TRANSCRIPTS_CSV)
 
-    # Build combined transcript (not used here, but needed for load_transcript_splits)
-    raw_df["Transcript_ALL"] = (
-        "[PFT] " + raw_df["Transcript_PFT"].fillna("") + " "
-        + "[CTD] " + raw_df["Transcript_CTD"].fillna("") + " "
-        + "[SFT] " + raw_df["Transcript_SFT"].fillna("")
-    )
-
-    tmp_csv = "data/transcripts_with_all_for_cascade.csv"
-    raw_df.to_csv(tmp_csv, index=False)
 
     df_by_transcript = load_transcript_splits(
-        tmp_csv,
-        transcript_cols=[
-            "Transcript_PFT",
-            "Transcript_CTD",
-            "Transcript_SFT",
-            "Transcript_ALL",
-        ],
+        TRANSCRIPTS_CSV,
     )
 
     for transcript_col in TRANSCRIPT_COLS_TO_RUN:
         if transcript_col not in df_by_transcript:
             raise ValueError(f"{transcript_col} not found in df_by_transcript keys.")
 
-        print(f"\n==============================")
-        print(f"Running cascaded experiments for {transcript_col} (model={MODEL_NAME})")
-        print(f"==============================")
+        print(f"Running cascaded experiments for {transcript_col} (model={MODEL_NAME}): ")
 
         base_df = df_by_transcript[transcript_col].copy()
 
         # Preserve original 3-class numeric labels
         base_df["Label_3cls"] = base_df["Label"]
 
-        # -------------------
         # Model A: HC vs Non-HC (binary)
-        # -------------------
         df_hc_nonhc = base_df.copy()
         df_hc_nonhc["Label_bin"] = (df_hc_nonhc["Class"] != "HC").astype(int)
 
-        print(f"\n=== Binary Task 1: HC vs Non-HC ({transcript_col}) ===")
+        print(f"\nBinary Task 1: HC vs Non-HC ({transcript_col}) ===")
         results_A, best_cfg_A, y_true_A, y_pred_A = random_search_kfold(
             df=df_hc_nonhc,
             transcript_col=transcript_col,
@@ -297,13 +276,11 @@ if __name__ == "__main__":
             f.write(report_A)
             f.write("\n")
 
-        # -------------------
         # Model B: MCI vs Dementia (binary, Non-HC subset)
-        # -------------------
         df_mci_dem = base_df[base_df["Class"] != "HC"].copy()
         df_mci_dem["Label_bin"] = (df_mci_dem["Class"] == "Dementia").astype(int)
 
-        print(f"\n=== Binary Task 2: MCI vs Dementia ({transcript_col}) ===")
+        print(f"\nBinary Task 2: MCI vs Dementia ({transcript_col}): ")
         results_B, best_cfg_B, y_true_B, y_pred_B = random_search_kfold(
             df=df_mci_dem,
             transcript_col=transcript_col,
@@ -344,9 +321,7 @@ if __name__ == "__main__":
             f.write(report_B)
             f.write("\n")
 
-        # -------------------
-        # FULL K-fold cascaded 3-class experiment using best configs
-        # -------------------
+        # full K-fold cascaded 3-class experiment using best configs
         run_cascade_kfold(
             base_df=base_df,
             transcript_col=transcript_col,
