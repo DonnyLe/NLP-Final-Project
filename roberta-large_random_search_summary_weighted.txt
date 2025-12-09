@@ -1,0 +1,7 @@
+Best config per transcript type (sorted by macro_f1) for model=roberta-large:
+
+ trial_id  learning_rate  batch_size  num_train_epochs  max_len  weight_decay  warmup_ratio  accuracy  macro_f1  weighted_f1  precision_macro  recall_macro  precision_weighted  recall_weighted transcript_col
+        6       0.000010           4                 4      256      0.037904           0.1  0.621795  0.424093     0.586021         0.402934      0.448136            0.554689         0.621795 Transcript_CTD
+        4       0.000015           2                 4      384      0.041138           0.1  0.578947  0.400941     0.548315         0.380019      0.424698            0.521174         0.578947 Transcript_SFT
+        6       0.000010           4                 4      256      0.037904           0.1  0.566879  0.394746     0.542087         0.378394      0.418837            0.526140         0.566879 Transcript_PFT
+        9       0.000015           2                 4      384      0.037238           0.0  0.566879  0.384051     0.532821         0.365178      0.406160            0.503824         0.566879 Transcript_ALL
