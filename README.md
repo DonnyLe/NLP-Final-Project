@@ -4,7 +4,7 @@ This project investigates a variety of models and approaches for classifying cog
 
 Our primary goal is to compare how different modeling approaches perform and to identify which transcript types and architectures provide the most reliable signals for dementia detection.
 
-The dataset consists of **157 total samples**: 82 HC, 59 MCI, and 16 Dementia
+The [dataset](https://www.kaggle.com/datasets/tahouramorovati/dementia-detection-using-speech) consists of **157 total samples**: 82 HC, 59 MCI, and 16 Dementia
 
 All experiments were evaluated using **stratified 5-fold cross-validation** to maintain consistent label distribution across folds.
 
