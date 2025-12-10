@@ -1,3 +1,16 @@
+'''
+Note: This code was scratched in favor of RoBERTa experimentation 
+since choosing an MNLI model did not seem to show any performance increases 
+
+To run: 
+    python -m mnli_tuned_model.bert_mnli_few_shot
+
+Like the other transformer-based modals, we ran this on the Northeastern GPUs
+Did not test running this locally 
+'''
+
+
+
 import os
 from typing import Dict, List, Tuple
 
@@ -5,8 +18,6 @@ import numpy as np
 import pandas as pd
 from datasets import Dataset
 from sklearn.metrics import (
-    accuracy_score,
-    precision_recall_fscore_support,
     confusion_matrix,
     ConfusionMatrixDisplay,
     classification_report,
@@ -20,17 +31,20 @@ from transformers import (
     AutoTokenizer,
     AutoModelForSequenceClassification,
     TrainingArguments,
-    Trainer,
 )
 
 from transcript_preprocessing import load_transcript_splits
 
-# -------------------------
-# Config
-# -------------------------
+# 🔁 Reuse shared PLM helpers
+from pretrained_lm.plm_utils import (
+    compute_metrics_from_labels,
+    compute_metrics_for_logits,
+    tokenize_batch_factory,
+    compute_class_weights_from_df,
+    WeightedCETrainer,
+)
 
 CLASS_NAMES = ["HC", "MCI", "Dementia"]
-
 
 BASE_MODEL_NAME = "roberta-large-mnli"
 
@@ -53,50 +67,6 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 # -------------------------
 # Helpers
 # -------------------------
-
-def compute_metrics_from_labels(labels, preds) -> Dict[str, float]:
-    """
-    Compute accuracy, macro/weighted F1, precision, and recall from labels and preds.
-    """
-    acc = accuracy_score(labels, preds)
-
-    precision_macro, recall_macro, f1_macro, _ = precision_recall_fscore_support(
-        labels, preds, average="macro", zero_division=0
-    )
-    precision_weighted, recall_weighted, f1_weighted, _ = precision_recall_fscore_support(
-        labels, preds, average="weighted", zero_division=0
-    )
-
-    return {
-        "accuracy": acc,
-        "macro_f1": f1_macro,
-        "weighted_f1": f1_weighted,
-        "precision_macro": precision_macro,
-        "recall_macro": recall_macro,
-        "precision_weighted": precision_weighted,
-        "recall_weighted": recall_weighted,
-    }
-
-
-def compute_metrics_for_logits(eval_pred) -> Dict[str, float]:
-    """
-    For Trainer: compute accuracy, macro/weighted F1, precision, recall from logits.
-    """
-    logits, labels = eval_pred
-    preds = np.argmax(logits, axis=-1)
-    return compute_metrics_from_labels(labels, preds)
-
-
-def tokenize_batch_factory(transcript_col: str, tokenizer, max_len: int):
-    def tokenize_batch(batch):
-        return tokenizer(
-            batch[transcript_col],
-            padding="max_length",
-            truncation=True,
-            max_length=max_len,
-        )
-    return tokenize_batch
-
 
 def make_few_shot_subset(
     df: pd.DataFrame,
@@ -128,61 +98,7 @@ def make_few_shot_subset(
     few_shot_df = few_shot_df.sample(frac=1.0, random_state=seed).reset_index(drop=True)
     return few_shot_df
 
-
-def compute_class_weights_from_df(
-    train_df: pd.DataFrame,
-    label_col: str = "Label",
-) -> torch.Tensor:
-    """
-    Compute class weights inversely proportional to class frequency.
-    weight_c = N / (num_classes * count_c)
-    """
-    labels = train_df[label_col].values
-    class_indices, counts = np.unique(labels, return_counts=True)
-
-    num_classes = len(class_indices)
-    total = counts.sum()
-
-    weights = total / (num_classes * counts.astype(np.float32))
-
-    sorted_weights = np.zeros(num_classes, dtype=np.float32)
-    for cls, w in zip(class_indices, weights):
-        sorted_weights[int(cls)] = w
-
-    return torch.tensor(sorted_weights, dtype=torch.float32)
-
-
-class WeightedCETrainer(Trainer):
-    """
-    Trainer subclass that uses class-weighted CrossEntropyLoss.
-    """
-
-    def __init__(self, class_weights: torch.Tensor, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.class_weights = class_weights
-        self._loss_fct = None
-
-    def compute_loss(self, model, inputs, return_outputs=False):
-        labels = inputs.pop("labels")
-        outputs = model(**inputs)
-        logits = outputs.logits
-
-        if self._loss_fct is None:
-            self._loss_fct = nn.CrossEntropyLoss(
-                weight=self.class_weights.to(logits.device)
-            )
-
-        loss = self._loss_fct(
-            logits.view(-1, self.model.config.num_labels),
-            labels.view(-1),
-        )
-        return (loss, outputs) if return_outputs else loss
-
-
-# -------------------------
 # Few-shot training for one transcript type
-# -------------------------
-
 def run_few_shot_for_transcript(
     df: pd.DataFrame,
     transcript_col: str,
@@ -250,7 +166,6 @@ def run_few_shot_for_transcript(
         "Transcript_PFT",
         "Transcript_CTD",
         "Transcript_SFT",
-        "Transcript_ALL",
         "__index_level_0__",
     ]
     cols_to_remove = [c for c in cols_to_remove if c in train_tok.column_names]
@@ -307,11 +222,7 @@ def run_few_shot_for_transcript(
     metrics = compute_metrics_from_labels(y_true, y_pred)
     return metrics, y_true, y_pred
 
-
-# -------------------------
 # Main
-# -------------------------
-
 if __name__ == "__main__":
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -396,6 +307,5 @@ if __name__ == "__main__":
     summary_csv = os.path.join(OUTPUT_DIR, "fewshot_summary_by_transcript.csv")
     summary_df.to_csv(summary_csv, index=False)
 
-    print("\n=== Finished few-shot MNLI-initialized BERT for all transcript types ===")
     print("Summary:")
     print(summary_df)

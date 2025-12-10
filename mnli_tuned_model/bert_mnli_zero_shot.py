@@ -1,3 +1,16 @@
+'''
+Note: This code is scratched due to the poor performance. 
+Accidentally removed the data, but generally, the modal was essentially guessing randomly 
+
+To run: 
+    python -m mnli_tuned_model.bert_mnli_zero
+
+Like the other transformer-based modals, we ran this on the Northeastern GPUs
+Did not test running this locally 
+'''
+
+
+
 import os
 from typing import Dict, List, Tuple
 
@@ -65,9 +78,8 @@ def compute_metrics_from_labels(labels, preds) -> Dict[str, float]:
     }
 
 
-# -------------------------
+
 # Zero-shot prediction with BERT-MNLI
-# -------------------------
 
 def zero_shot_predict(
     texts: List[str],

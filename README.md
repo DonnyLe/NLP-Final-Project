@@ -52,11 +52,13 @@ Model components:
 
 ---
 
-### 4. BERT Fine-Tuning (Transformer Model)
-We fine-tuned **bert-base-uncased** separately for CTD, PFT, and SFT to evaluate transformer-based performance.
+### 4. Pre-trained Language Model (Transformer Model)
+We fine-tuned **bert-base-uncased**,  **RoBERTa-large**, and **roberta-large-mnli** (also tried zero-shot using this model) for CTD, PFT, and SFT to evaluate transformer-based performance. We fine-tuned these models using TeslaV100 GPUs on the Northeastern GPU Cluster. 
 
 Setup included:
 - HuggingFace `Trainer` API  
 - Truncation/padding to a fixed maximum token length  
 - Hyperparameter exploration of learning rate, warmup ratio, and epochs  
+- Utilizes random search 
+
 

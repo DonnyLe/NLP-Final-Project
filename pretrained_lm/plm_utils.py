@@ -1,4 +1,4 @@
-# plm_utils.py
+# utils files with functions that both plm_cascade.py and plm_random_search.py use 
 
 import os
 from typing import Dict, List, Tuple, Optional

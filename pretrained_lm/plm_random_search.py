@@ -1,4 +1,15 @@
-# plm_random_search.py
+"""
+
+This file is for evaluating pretrained language models (transformers) for dementia classification
+
+Quick start guide: 
+    - To run the fine-tuning and validation code, we utilized the Northeastern GPUs
+    - Tried to run the code natively on M1 Macbook Air, but was running into an error (it may work on another computer though)
+    - Command: python -m pretrained_lm.plm_random_search (on the project root)
+    - If you want to change the model do: PLM_MODEL_NAME=model_name python -m pretrained_lm.plm_random_search
+    - model_name can be roberta-large or bert-base-uncased
+"""
+
 
 import os
 from typing import List, Dict
@@ -31,7 +42,7 @@ MODEL_TAG = MODEL_NAME.split("/")[-1]
 if __name__ == "__main__":
     TRANSCRIPTS_CSV = "data/transcripts_cleaned.csv"
 
-    # ---- FLAGS: CHOOSE ONE MODE ----
+    # Upsampling and class weight flags  
     USE_UPSAMPLING = False
     USE_CLASS_WEIGHTS = True
 
@@ -42,36 +53,26 @@ if __name__ == "__main__":
     N_TRIALS = 10
     N_SPLITS = 5
 
-    # Load raw data once so we can build Transcript_ALL
+        # Load raw data once
     raw_df = pd.read_csv(TRANSCRIPTS_CSV)
 
-    # Build combined transcript
-    raw_df["Transcript_ALL"] = (
-        "[PFT] " + raw_df["Transcript_PFT"].fillna("") + " "
-        + "[CTD] " + raw_df["Transcript_CTD"].fillna("") + " "
-        + "[SFT] " + raw_df["Transcript_SFT"].fillna("")
-    )
-
-    # Save a temp CSV with the new column so load_transcript_splits can see it
-    tmp_csv = "data/transcripts_with_all.csv"
-    raw_df.to_csv(tmp_csv, index=False)
-
+    # Only use the three individual transcript types
     TRANSCRIPT_COLS = [
         "Transcript_PFT",
         "Transcript_CTD",
         "Transcript_SFT",
-        "Transcript_ALL",
     ]
 
     # This helper builds one df per transcript type, dropping rows with NaNs for that column
     df_by_transcript = load_transcript_splits(
-        tmp_csv,
+        TRANSCRIPTS_CSV,
         transcript_cols=TRANSCRIPT_COLS,
     )
 
     best_overall: List[Dict] = []
 
-    # Filename suffix depending on mode
+
+    # filename suffixes 
     if USE_UPSAMPLING:
         suffix = "_upsampled"
     elif USE_CLASS_WEIGHTS:
@@ -81,7 +82,6 @@ if __name__ == "__main__":
 
     for transcript_col, df in df_by_transcript.items():
         print(
-            f"\nStarting random search for {transcript_col} "
             f"(upsampling={USE_UPSAMPLING}, class_weights={USE_CLASS_WEIGHTS}, model={MODEL_NAME})"
         )
 
@@ -104,8 +104,8 @@ if __name__ == "__main__":
         best_row = best_cfg.copy()
         best_row["transcript_col"] = transcript_col
         best_overall.append(best_row)
-
-        print(f"\nTop configs for {transcript_col}:")
+        print()
+        print(f"Top configs for {transcript_col}:")
         print(results_df.head())
 
         # Confusion matrix for best trial of this transcript type
@@ -114,7 +114,7 @@ if __name__ == "__main__":
         fig, ax = plt.subplots()
         disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=CLASS_NAMES)
         disp.plot(ax=ax, cmap="Blues", values_format="d")
-        ax.set_title(f"{MODEL_TAG} Confusion Matrix - {transcript_col}{suffix}")
+        ax.set_title(f"{MODEL_TAG} Confusion Matrix: {transcript_col}{suffix}")
 
         cm_filename = f"{MODEL_TAG}_confusion_matrix_{transcript_col}{suffix}.png"
         fig.savefig(cm_filename, dpi=300, bbox_inches="tight")
@@ -126,8 +126,8 @@ if __name__ == "__main__":
             target_names=CLASS_NAMES,
             zero_division=0,
         )
-
-        print(f"\nClassification report for {transcript_col}{suffix}:")
+        print()
+        print(f"Classification report for {transcript_col}{suffix}:")
         print(report)
 
         report_filename = f"{MODEL_TAG}_classification_report_{transcript_col}{suffix}.txt"
@@ -149,6 +149,5 @@ if __name__ == "__main__":
         f.write(best_df.to_string(index=False))
         f.write("\n")
 
-    print("\nFinished random search for all transcript types.")
     print("Best configs table:")
     print(best_df)

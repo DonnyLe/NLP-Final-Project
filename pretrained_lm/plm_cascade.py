@@ -1,4 +1,15 @@
-# plm_cascade.py
+"""
+
+This file is for evaluating cascaded binary classification on pretrained language models (transformers) 
+for dementia classification 
+
+Quick start guide: 
+    - To run the fine-tuning and validation code, we utilized the Northeastern GPUs
+    - Tried to run the code natively on M1 Macbook Air, but was running into an error (it may work on another computer though)
+    - Command: python -m pretrained_lm.plm_cascade (on the project root)
+    - If you want to change the model do: PLM_MODEL_NAME=model_name python -m pretrained_lm.plm_cascade
+    - model_name can be roberta-large or bert-base-uncased
+"""
 
 import os
 from typing import Dict, List
@@ -143,15 +154,16 @@ def run_cascade_kfold(
 
         for i in range(len(dev_df)):
             pred_A = preds_A_dev[i]
+            # if healthy control 
             if pred_A == 0:
                 cascade_preds_fold.append(0)  # HC
+            # else, feed into second model 
             else:
-                # Non-HC -> use Model B
-                pred_B = preds_B_dev_full[i]  # 0 = MCI, 1 = Dementia
-                if pred_B == 0:
-                    cascade_preds_fold.append(1)  # MCI
+                pred_B = preds_B_dev_full[i]  
+                if pred_B == 0: # 0 = MCI, 1 = dementia 
+                    cascade_preds_fold.append(1) 
                 else:
-                    cascade_preds_fold.append(2)  # Dementia
+                    cascade_preds_fold.append(2)
 
         all_y_true.append(y_true_3cls_fold)
         all_y_pred.append(np.array(cascade_preds_fold))
@@ -160,10 +172,11 @@ def run_cascade_kfold(
     cascade_preds_3cls = np.concatenate(all_y_pred)
 
     metrics_3cls = compute_metrics_from_labels(y_true_all, cascade_preds_3cls)
-    print("\nK-fold Cascaded 3-class metrics:")
-    print("  accuracy:", metrics_3cls["accuracy"])
-    print("  macro_f1:", metrics_3cls["macro_f1"])
-    print("  weighted_f1:", metrics_3cls["weighted_f1"])
+    print() 
+    print("K-fold Cascaded 3-class metrics:")
+    print("accuracy:", metrics_3cls["accuracy"])
+    print("macro_f1:", metrics_3cls["macro_f1"])
+    print("weighted_f1:", metrics_3cls["weighted_f1"])
 
     cm = confusion_matrix(y_true_all, cascade_preds_3cls, labels=[0, 1, 2])
 
