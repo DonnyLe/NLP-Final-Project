@@ -76,10 +76,8 @@ cd "$SLURM_SUBMIT_DIR"
 echo "Working directory: $(pwd)"
 echo ""
 
-# Set the model to BERT-base-uncased for plm_cascade
 export PLM_MODEL_NAME=bert-base-uncased
 
-# If plm_cascade.py is in the project root:
 python -m pretrained_lm.plm_cascade
 
 

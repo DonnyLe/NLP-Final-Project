@@ -8,6 +8,14 @@ Quick start guide:
     - Command: python -m pretrained_lm.plm_random_search (on the project root)
     - If you want to change the model do: PLM_MODEL_NAME=model_name python -m pretrained_lm.plm_random_search
     - model_name can be roberta-large or bert-base-uncased
+
+On the Northeastern GPU cluster: 
+    - Instructions to SSH: https://rc-docs.northeastern.edu/en/latest/gpus/index.html
+    - Clone repo
+    - sbatch run_roberta_random.sh
+    or 
+    - sbatch run_bert_random.sh
+
 """
 
 
@@ -42,31 +50,24 @@ MODEL_TAG = MODEL_NAME.split("/")[-1]
 if __name__ == "__main__":
     TRANSCRIPTS_CSV = "data/transcripts_cleaned.csv"
 
-    # Upsampling and class weight flags  
+    # upsampling and class weight flags  
     USE_UPSAMPLING = False
     USE_CLASS_WEIGHTS = True
 
     if USE_UPSAMPLING and USE_CLASS_WEIGHTS:
         raise ValueError("Set only one of USE_UPSAMPLING / USE_CLASS_WEIGHTS to True.")
 
-    # Number of trials and folds
+    # num of trials and folds
     N_TRIALS = 10
     N_SPLITS = 5
 
         # Load raw data once
     raw_df = pd.read_csv(TRANSCRIPTS_CSV)
 
-    # Only use the three individual transcript types
-    TRANSCRIPT_COLS = [
-        "Transcript_PFT",
-        "Transcript_CTD",
-        "Transcript_SFT",
-    ]
+   
 
-    # This helper builds one df per transcript type, dropping rows with NaNs for that column
     df_by_transcript = load_transcript_splits(
         TRANSCRIPTS_CSV,
-        transcript_cols=TRANSCRIPT_COLS,
     )
 
     best_overall: List[Dict] = []
@@ -108,7 +109,7 @@ if __name__ == "__main__":
         print(f"Top configs for {transcript_col}:")
         print(results_df.head())
 
-        # Confusion matrix for best trial of this transcript type
+        # confusion matrix for best trial of this transcript type
         cm = confusion_matrix(y_true_best, y_pred_best, labels=[0, 1, 2])
 
         fig, ax = plt.subplots()

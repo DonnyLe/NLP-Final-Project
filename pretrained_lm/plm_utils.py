@@ -26,9 +26,7 @@ from transcript_preprocessing import get_stratified_kfold_splits
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
-# =========================
 # Metrics
-# =========================
 
 def compute_metrics_from_labels(labels, preds) -> Dict[str, float]:
     """
@@ -65,9 +63,17 @@ def compute_metrics_for_logits(eval_pred):
 
 # =========================
 # Tokenization
-# =========================
 
 def tokenize_batch_factory(transcript_col: str, tokenizer, max_len: int):
+    """
+    Docstring for tokenize_batch_factory
+    
+    :param transcript_col: Description
+    :type transcript_col: str
+    :param tokenizer: Description
+    :param max_len: Description
+    :type max_len: int
+    """
     def tokenize_batch(batch):
         return tokenizer(
             batch[transcript_col],
@@ -142,6 +148,8 @@ def compute_class_weights_from_df(
     return torch.tensor(sorted_weights, dtype=torch.float32)
 
 
+
+# followed this source: https://discuss.huggingface.co/t/cross-entropy-weighted/3559/3
 class WeightedCETrainer(Trainer):
     """
     Trainer subclass with class-weighted CrossEntropyLoss.
@@ -170,10 +178,7 @@ class WeightedCETrainer(Trainer):
         return (loss, outputs) if return_outputs else loss
 
 
-# =========================
 # Hyperparameter sampling
-# =========================
-
 def sample_hyperparams(model_name: str, rng: np.random.Generator) -> Dict:
     """
     Sample one random hyperparameter configuration.
@@ -209,10 +214,7 @@ def sample_hyperparams(model_name: str, rng: np.random.Generator) -> Dict:
     }
 
 
-# =========================
 # Core training helpers
-# =========================
-
 def _build_tokenized_datasets(
     train_df: pd.DataFrame,
     dev_df: pd.DataFrame,

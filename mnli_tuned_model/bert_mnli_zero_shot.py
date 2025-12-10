@@ -5,8 +5,12 @@ Accidentally removed the data, but generally, the modal was essentially guessing
 To run: 
     python -m mnli_tuned_model.bert_mnli_zero
 
-Like the other transformer-based modals, we ran this on the Northeastern GPUs
+Like the other transformer-based modals, we ran this on the Northeastern GPUs.
+This was done using the "run_bert_mnli_zero_shot.sh" bash script after SSHing into the cluster.
 Did not test running this locally 
+
+
+Used this code as a reference: https://joeddav.github.io/blog/2020/05/29/ZSL.html
 '''
 
 
@@ -99,7 +103,6 @@ def zero_shot_predict(
 
     all_preds: List[int] = []
 
-    # We'll process texts in small batches to avoid OOM
     num_texts = len(texts)
     num_classes = len(CLASS_HYPOTHESES)
 
@@ -108,14 +111,14 @@ def zero_shot_predict(
             end = min(start + batch_size, num_texts)
             batch_texts = texts[start:end]
 
-            # For each text in batch, we will build num_classes pairs
-            # and then pick the best class per example
+            # for each text in batch, build num_classes pairs
+            #  then pick the best class per example
             entailment_scores = []
 
             for class_idx in range(num_classes):
                 hyp = CLASS_HYPOTHESES[class_idx]
 
-                # Tokenize premise–hypothesis pairs
+                # tokenize premise–hypothesis pairs
                 encoded = tokenizer(
                     batch_texts,
                     [hyp] * len(batch_texts),
@@ -143,10 +146,7 @@ def zero_shot_predict(
     return np.array(all_preds, dtype=int)
 
 
-# -------------------------
-# Zero-shot evaluation for one transcript type
-# -------------------------
-
+# zero-shot evaluation for one transcript type
 def evaluate_zero_shot_for_transcript(
     df: pd.DataFrame,
     transcript_col: str,
@@ -161,7 +161,6 @@ def evaluate_zero_shot_for_transcript(
       - transcript_col: text
       - "Label": integer labels 0..(num_classes-1)
     """
-    print(f"\nEvaluating zero-shot BERT-MNLI for {transcript_col}")
 
     # Drop rows with missing transcript or label
     df_clean = df.dropna(subset=[transcript_col, "Label"]).copy()
@@ -182,39 +181,21 @@ def evaluate_zero_shot_for_transcript(
     return metrics, y_true, y_pred
 
 
-# -------------------------
 # Main: run zero-shot on ALL transcript types
-# -------------------------
-
 if __name__ == "__main__":
     TRANSCRIPTS_CSV = "data/transcripts_cleaned.csv"
-
-    # Load raw data once so we can build Transcript_ALL
     raw_df = pd.read_csv(TRANSCRIPTS_CSV)
-
-    # Build combined transcript like in your training script
-    raw_df["Transcript_ALL"] = (
-        "[PFT] " + raw_df["Transcript_PFT"].fillna("") + " "
-        + "[CTD] " + raw_df["Transcript_CTD"].fillna("") + " "
-        + "[SFT] " + raw_df["Transcript_SFT"].fillna("")
-    )
-
-    # Save a temp CSV with the new column so load_transcript_splits can see it
-    tmp_csv = "data/transcripts_with_all.csv"
-    raw_df.to_csv(tmp_csv, index=False)
-
     TRANSCRIPT_COLS = [
         "Transcript_PFT",
         "Transcript_CTD",
         "Transcript_SFT",
-        "Transcript_ALL",
     ]
 
-    # This helper builds one df per transcript type, dropping rows with NaNs for that column
     df_by_transcript = load_transcript_splits(
-        tmp_csv,
+        TRANSCRIPTS_CSV,
         transcript_cols=TRANSCRIPT_COLS,
     )
+
 
     print("Loading NLI model:", NLI_MODEL_NAME)
     tokenizer = AutoTokenizer.from_pretrained(NLI_MODEL_NAME)
@@ -243,7 +224,7 @@ if __name__ == "__main__":
         for k, v in metrics.items():
             print(f"  {k}: {v:.4f}")
 
-        # Confusion matrix
+        # confusion matrix
         cm = confusion_matrix(y_true, y_pred, labels=[0, 1, 2])
         fig, ax = plt.subplots()
         disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=CLASS_NAMES)
@@ -254,7 +235,7 @@ if __name__ == "__main__":
         fig.savefig(cm_filename, dpi=300, bbox_inches="tight")
         plt.close(fig)
 
-        # Classification report
+        # classification report
         report = classification_report(
             y_true,
             y_pred,
@@ -274,7 +255,7 @@ if __name__ == "__main__":
             for k, v in metrics.items():
                 f.write(f"{k} = {v}\n")
 
-    # Summary across transcript types
+    # summary across transcript types
     summary_df = pd.DataFrame(summary_rows).sort_values("macro_f1", ascending=False)
     summary_df.to_csv("zero_shot_outputs/zs_summary_by_transcript.csv", index=False)
 

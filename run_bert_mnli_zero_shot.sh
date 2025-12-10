@@ -71,13 +71,10 @@ cd "$SLURM_SUBMIT_DIR"
 echo "Working directory: $(pwd)"
 echo ""
 
-# OPTION 1: bert_mnli_zero_shot.py is in a package directory, e.g. mnli_tuned_model/
-# Make sure the directory is named with underscores, NOT dashes.
+
 python -m mnli_tuned_model.bert_mnli_zero_shot
 
-# OPTION 2: bert_mnli_zero_shot.py is in the current directory
-# Comment out the line above and use:
-# python bert_mnli_zero_shot.py
+
 
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))

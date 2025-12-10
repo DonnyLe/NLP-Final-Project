@@ -9,6 +9,14 @@ Quick start guide:
     - Command: python -m pretrained_lm.plm_cascade (on the project root)
     - If you want to change the model do: PLM_MODEL_NAME=model_name python -m pretrained_lm.plm_cascade
     - model_name can be roberta-large or bert-base-uncased
+
+On the Northeastern GPU cluster: 
+    - Instructions to SSH: https://rc-docs.northeastern.edu/en/latest/gpus/index.html
+    - Clone repo
+    - sbatch run_roberta_cascade.sh
+    or 
+    - sbatch run_bert_cascade.sh
+
 """
 
 import os
@@ -69,9 +77,7 @@ def run_cascade_kfold(
           * run cascade on dev split to get 3-class predictions
       - Aggregate metrics and confusion matrix over all folds.
     """
-    print(f"\nRunning FULL K-fold cascaded evaluation for {transcript_col} with model={model_name}")
 
-    y_all = base_df["Label_3cls"].values
 
     folds = list(
         get_stratified_kfold_splits(
@@ -119,7 +125,7 @@ def run_cascade_kfold(
             tmp_dir_tag=f"{MODEL_TAG}_cascade_A_fold{fold_idx}",
         )
 
-        # Model B: MCI vs Dementia on Non-HC subset of train
+        # Model B: MCI vs Dementia on Non-HC
         train_B = train_df[train_df["Class"] != "HC"].copy()
         dev_B_full = dev_df.copy()
 
@@ -211,14 +217,12 @@ def run_cascade_kfold(
 if __name__ == "__main__":
     TRANSCRIPTS_CSV = "data/transcripts_cleaned.csv"
 
-    # We will run on these transcript types ONLY
     TRANSCRIPT_COLS_TO_RUN = [
         "Transcript_PFT",
         "Transcript_CTD",
         "Transcript_SFT",
     ]
 
-    # Random search + K-fold settings for the binary tasks
     N_TRIALS = 10
     N_SPLITS = 5
     SEED = 42
@@ -226,7 +230,6 @@ if __name__ == "__main__":
     USE_UPSAMPLING = False
     USE_CLASS_WEIGHTS = True
 
-    # Load original CSV directly
     raw_df = pd.read_csv(TRANSCRIPTS_CSV)
 
 
@@ -235,17 +238,13 @@ if __name__ == "__main__":
     )
 
     for transcript_col in TRANSCRIPT_COLS_TO_RUN:
-        if transcript_col not in df_by_transcript:
-            raise ValueError(f"{transcript_col} not found in df_by_transcript keys.")
-
-        print(f"Running cascaded experiments for {transcript_col} (model={MODEL_NAME}): ")
-
+    
         base_df = df_by_transcript[transcript_col].copy()
 
-        # Preserve original 3-class numeric labels
+        # keep original 3-class numeric labels
         base_df["Label_3cls"] = base_df["Label"]
 
-        # Model A: HC vs Non-HC (binary)
+        # Model A: HC vs non-HC (or CI or cognitive impairment) 
         df_hc_nonhc = base_df.copy()
         df_hc_nonhc["Label_bin"] = (df_hc_nonhc["Class"] != "HC").astype(int)
 
@@ -290,7 +289,7 @@ if __name__ == "__main__":
             f.write(report_A)
             f.write("\n")
 
-        # Model B: MCI vs Dementia (binary, Non-HC subset)
+        # Model B: MCI vs Dementia
         df_mci_dem = base_df[base_df["Class"] != "HC"].copy()
         df_mci_dem["Label_bin"] = (df_mci_dem["Class"] == "Dementia").astype(int)
 
@@ -348,4 +347,3 @@ if __name__ == "__main__":
             use_upsampling=USE_UPSAMPLING,
         )
 
-    print(f"\nAll cascaded K-fold experiments finished for PFT / CTD / SFT with {MODEL_NAME}.")

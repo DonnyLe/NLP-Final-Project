@@ -76,11 +76,9 @@ cd "$SLURM_SUBMIT_DIR"
 echo "Working directory: $(pwd)"
 echo ""
 
-# Use RoBERTa-large via env var consumed in your PLM code
 export PLM_MODEL_NAME=roberta-large
 echo "Using PLM_MODEL_NAME=${PLM_MODEL_NAME}"
 
-# If plm_cascade.py is in the pretrained_lm package:
 python -m pretrained_lm.plm_cascade
 
 END_TIME=$(date +%s)

@@ -6,6 +6,7 @@ To run:
     python -m mnli_tuned_model.bert_mnli_few_shot
 
 Like the other transformer-based modals, we ran this on the Northeastern GPUs
+This was done using the "run_few_shot_mnli.sh" bash script after SSHing into the cluster.
 Did not test running this locally 
 '''
 
@@ -35,7 +36,6 @@ from transformers import (
 
 from transcript_preprocessing import load_transcript_splits
 
-# 🔁 Reuse shared PLM helpers
 from pretrained_lm.plm_utils import (
     compute_metrics_from_labels,
     compute_metrics_for_logits,
@@ -48,10 +48,10 @@ CLASS_NAMES = ["HC", "MCI", "Dementia"]
 
 BASE_MODEL_NAME = "roberta-large-mnli"
 
-# Few-shot size (per class)
-N_SHOT_PER_CLASS = 20  # e.g., at most 20 examples per label
+# few-shot size (per class)
+N_SHOT_PER_CLASS = 20  
 
-# Training hyperparameters
+# training hyperparameters
 MAX_LEN = 256
 BATCH_SIZE = 8
 NUM_EPOCHS = 5
@@ -98,7 +98,7 @@ def make_few_shot_subset(
     few_shot_df = few_shot_df.sample(frac=1.0, random_state=seed).reset_index(drop=True)
     return few_shot_df
 
-# Few-shot training for one transcript type
+# few-shot training for one transcript type
 def run_few_shot_for_transcript(
     df: pd.DataFrame,
     transcript_col: str,
@@ -110,11 +110,11 @@ def run_few_shot_for_transcript(
     Few-shot fine-tune MNLI-initialized model on a small subset
     for a single transcript column. Returns metrics, y_true, y_pred on dev set.
     """
-    print(f"\n=== FEW-SHOT TRAINING for {transcript_col} ===")
+    print(f"\n FEW-SHOT TRAINING for {transcript_col}: ")
     print(f"Base model: {model_name}")
     print(f"Few-shot: up to {n_shot_per_class} examples per class")
 
-    # Keep rows with non-null transcript + label
+    # keep rows with non-null transcript and label
     df_clean = df.dropna(subset=[transcript_col, "Label"]).copy()
     df_clean = df_clean.reset_index(drop=True)
 
@@ -159,7 +159,7 @@ def run_few_shot_for_transcript(
     train_tok = train_tok.rename_column("Label", "labels")
     dev_tok = dev_tok.rename_column("Label", "labels")
 
-    # Drop unused columns if present
+    # drop unused columns if present
     cols_to_remove = [
         "Record-ID",
         "Class",
@@ -222,34 +222,23 @@ def run_few_shot_for_transcript(
     metrics = compute_metrics_from_labels(y_true, y_pred)
     return metrics, y_true, y_pred
 
-# Main
+# main
 if __name__ == "__main__":
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     TRANSCRIPTS_CSV = "data/transcripts_cleaned.csv"
-    raw_df = pd.read_csv(TRANSCRIPTS_CSV)
-
-    # Build Transcript_ALL like in your other scripts
-    raw_df["Transcript_ALL"] = (
-        "[PFT] " + raw_df["Transcript_PFT"].fillna("") + " "
-        + "[CTD] " + raw_df["Transcript_CTD"].fillna("") + " "
-        + "[SFT] " + raw_df["Transcript_SFT"].fillna("")
-    )
-
-    tmp_csv = "data/transcripts_with_all.csv"
-    raw_df.to_csv(tmp_csv, index=False)
 
     TRANSCRIPT_COLS = [
         "Transcript_PFT",
         "Transcript_CTD",
         "Transcript_SFT",
-        "Transcript_ALL",
     ]
 
     df_by_transcript = load_transcript_splits(
-        tmp_csv,
+        TRANSCRIPTS_CSV,
         transcript_cols=TRANSCRIPT_COLS,
     )
+
 
     summary_rows: List[Dict] = []
 
